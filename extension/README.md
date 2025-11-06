@@ -121,3 +121,4 @@ When deploying to production:
 3. Test the extension with your production site
 4. Package the extension for Chrome Web Store submission
 
+

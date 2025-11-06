@@ -78,13 +78,14 @@ export async function POST(request: NextRequest) {
       phone: lead.phone,
       created_at: lead.created_at,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Lead creation error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create lead' },
+      { error: error instanceof Error ? error.message : 'Failed to create lead' },
       { status: 500 }
     );
   }
 }
+
 
 
