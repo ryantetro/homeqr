@@ -1,36 +1,179 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HomeQR — Smart QR Codes for Real Estate
 
-## Getting Started
+A professional Next.js application that helps real estate agents generate QR codes for property listings, capture buyer leads, and track engagement analytics.
 
-First, run the development server:
+## 🚀 Features
+
+- ⚡ **Next.js 16** - Latest version with App Router
+- 🎨 **Tailwind CSS v4** - Utility-first CSS framework
+- 📘 **TypeScript** - Full type safety
+- 🗄️ **Supabase** - PostgreSQL database with authentication
+- 🔐 **Authentication** - Email/password auth with Supabase
+- 📱 **QR Code Generation** - Generate QR codes for listings
+- 📊 **Analytics Dashboard** - Track scans and leads
+- 💳 **Stripe Integration** - Subscription management (ready for setup)
+- 🧩 **Chrome Extension** - Generate QR codes from listing pages
+- 📈 **Lead Management** - Capture and export buyer leads
+- 🌙 **Dark Mode** - Built-in dark mode support
+
+## 📁 Project Structure
+
+```
+homeqr/
+├── src/
+│   ├── app/
+│   │   ├── api/              # API routes
+│   │   │   ├── qr/           # QR code generation
+│   │   │   ├── scan/         # Scan tracking
+│   │   │   ├── leads/        # Lead capture
+│   │   │   ├── listings/     # Listings CRUD
+│   │   │   └── stripe/       # Stripe integration
+│   │   ├── auth/             # Authentication pages
+│   │   ├── dashboard/        # Dashboard pages
+│   │   ├── listing/          # Public listing pages
+│   │   └── page.tsx          # Marketing homepage
+│   ├── components/
+│   │   ├── auth/            # Auth components
+│   │   ├── dashboard/       # Dashboard components
+│   │   ├── qr/              # QR code components
+│   │   ├── leads/           # Lead components
+│   │   ├── charts/          # Chart components
+│   │   └── ui/              # UI components
+│   ├── lib/
+│   │   ├── supabase/        # Supabase clients
+│   │   ├── stripe/          # Stripe clients
+│   │   └── utils/           # Utility functions
+│   ├── hooks/               # Custom React hooks
+│   └── types/               # TypeScript types
+├── extension/               # Chrome extension
+│   ├── manifest.json
+│   ├── popup.html
+│   ├── popup.js
+│   ├── background.js
+│   └── content.js
+├── supabase/
+│   └── schema.sql          # Database schema
+└── .env.local.example      # Environment variables template
+```
+
+## 🛠️ Getting Started
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- Supabase account and project
+- Stripe account (for payments)
+
+### Installation
+
+1. **Clone and install dependencies:**
+
+```bash
+npm install
+```
+
+2. **Set up environment variables:**
+
+Copy `.env.local.example` to `.env.local` and fill in your values:
+
+```bash
+cp .env.local.example .env.local
+```
+
+Required variables:
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon key
+- `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
+- `STRIPE_SECRET_KEY` - Your Stripe secret key
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Your Stripe publishable key
+- `STRIPE_WEBHOOK_SECRET` - Your Stripe webhook secret
+- `NEXT_PUBLIC_SITE_URL` - Your site URL (e.g., http://localhost:3000)
+
+3. **Set up Supabase database:**
+
+Run the SQL schema in `supabase/schema.sql` in your Supabase SQL Editor.
+
+4. **Run the development server:**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📦 Chrome Extension Setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Load the extension:**
 
-## Learn More
+- Open Chrome and navigate to `chrome://extensions/`
+- Enable "Developer mode"
+- Click "Load unpacked"
+- Select the `extension/` folder
 
-To learn more about Next.js, take a look at the following resources:
+2. **Configure the extension:**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- The extension will detect listing pages on Zillow, Realtor.com, and Sonder Group sites
+- Click the extension icon to generate QR codes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔧 API Endpoints
 
-## Deploy on Vercel
+- `POST /api/qr` - Generate QR code for a listing
+- `GET /api/scan/[id]` - Track QR code scan and redirect
+- `POST /api/leads` - Capture lead form submission
+- `GET /api/listings` - Fetch user's listings
+- `POST /api/listings` - Create new listing
+- `PUT /api/listings` - Update listing
+- `DELETE /api/listings` - Delete listing
+- `POST /api/stripe/checkout` - Create Stripe checkout session
+- `POST /api/stripe/webhook` - Handle Stripe webhook events
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📝 Database Schema
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The database includes tables for:
+- `users` - User profiles
+- `listings` - Property listings
+- `qrcodes` - QR code records
+- `leads` - Captured buyer leads
+- `analytics` - Daily aggregated data
+- `subscriptions` - Stripe subscription tracking
+
+See `supabase/schema.sql` for the complete schema with RLS policies.
+
+## 🎯 Key Features
+
+### For Realtors
+
+- Create listings with property details
+- Generate QR codes for each listing
+- Track QR code scans and engagement
+- Capture buyer leads from QR scans
+- View analytics and performance metrics
+- Export leads to CSV
+- Manage profile and subscription
+
+### For Buyers
+
+- Scan QR codes to view property details
+- Submit contact information
+- Request property information
+
+## 🚢 Deployment
+
+### Vercel (Recommended)
+
+1. Push your code to GitHub
+2. Import project in Vercel
+3. Add environment variables
+4. Deploy
+
+### Environment Variables for Production
+
+Make sure to set all required environment variables in your deployment platform.
+
+## 📄 License
+
+This project is private and proprietary.
+
+## 🤝 Support
+
+For issues or questions, please contact the development team.

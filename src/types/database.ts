@@ -1,0 +1,243 @@
+// Database type definitions for HomeQR
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export interface Database {
+  public: {
+    Tables: {
+      users: {
+        Row: {
+          id: string;
+          full_name: string | null;
+          email: string | null;
+          phone: string | null;
+          brokerage: string | null;
+          avatar_url: string | null;
+          role: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          full_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          brokerage?: string | null;
+          avatar_url?: string | null;
+          role?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          brokerage?: string | null;
+          avatar_url?: string | null;
+          role?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      listings: {
+        Row: {
+          id: string;
+          user_id: string;
+          address: string;
+          city: string | null;
+          state: string | null;
+          zip: string | null;
+          price: number | null;
+          description: string | null;
+          image_url: string | null;
+          mls_id: string | null;
+          bedrooms: number | null;
+          bathrooms: number | null;
+          square_feet: number | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          address: string;
+          city?: string | null;
+          state?: string | null;
+          zip?: string | null;
+          price?: number | null;
+          description?: string | null;
+          image_url?: string | null;
+          mls_id?: string | null;
+          bedrooms?: number | null;
+          bathrooms?: number | null;
+          square_feet?: number | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          address?: string;
+          city?: string | null;
+          state?: string | null;
+          zip?: string | null;
+          price?: number | null;
+          description?: string | null;
+          image_url?: string | null;
+          mls_id?: string | null;
+          bedrooms?: number | null;
+          bathrooms?: number | null;
+          square_feet?: number | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      qrcodes: {
+        Row: {
+          id: string;
+          listing_id: string;
+          qr_url: string | null;
+          scan_count: number;
+          redirect_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          listing_id: string;
+          qr_url?: string | null;
+          scan_count?: number;
+          redirect_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          listing_id?: string;
+          qr_url?: string | null;
+          scan_count?: number;
+          redirect_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      leads: {
+        Row: {
+          id: string;
+          listing_id: string;
+          name: string;
+          email: string | null;
+          phone: string | null;
+          message: string | null;
+          source: string;
+          scan_timestamp: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          listing_id: string;
+          name: string;
+          email?: string | null;
+          phone?: string | null;
+          message?: string | null;
+          source?: string;
+          scan_timestamp?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          listing_id?: string;
+          name?: string;
+          email?: string | null;
+          phone?: string | null;
+          message?: string | null;
+          source?: string;
+          scan_timestamp?: string;
+          created_at?: string;
+        };
+      };
+      analytics: {
+        Row: {
+          id: number;
+          listing_id: string;
+          date: string;
+          total_scans: number;
+          total_leads: number;
+          unique_visitors: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          listing_id: string;
+          date: string;
+          total_scans?: number;
+          total_leads?: number;
+          unique_visitors?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          listing_id?: string;
+          date?: string;
+          total_scans?: number;
+          total_leads?: number;
+          unique_visitors?: number;
+          created_at?: string;
+        };
+      };
+      subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          status: string;
+          plan: string;
+          current_period_start: string | null;
+          current_period_end: string | null;
+          cancel_at_period_end: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          status?: string;
+          plan?: string;
+          current_period_start?: string | null;
+          current_period_end?: string | null;
+          cancel_at_period_end?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          status?: string;
+          plan?: string;
+          current_period_start?: string | null;
+          current_period_end?: string | null;
+          cancel_at_period_end?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+    };
+  };
+}
+
+

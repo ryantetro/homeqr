@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HomeQR</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="header-gradient">
+      <div class="header-logo">
+        <img src="logo.png" alt="HomeQR" />
+        <h1>HomeQR</h1>
+      </div>
+      <a href="#" id="dashboardLink" class="dashboard-link">Dashboard</a>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs-container">
+      <button class="tab-btn active" data-tab="generate">Generate</button>
+      <button class="tab-btn" data-tab="listings">My Listings</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </nav>
+
+    <!-- Generate Tab -->
+    <section id="generate" class="tab-content active">
+      <div id="generateContent">
+        <div class="status-message status-info">
+          <span>Loading listing information...</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- My Listings Tab -->
+    <section id="listings" class="tab-content">
+      <div id="listingsContent">
+        <div class="empty-state">
+          <div class="empty-state-icon">🏠</div>
+          <div class="empty-state-text">Loading your listings...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Tab -->
+    <section id="settings" class="tab-content">
+      <div class="settings-section">
+        <label class="settings-label">Site URL</label>
+        <div class="settings-value" id="siteUrlDisplay">Loading...</div>
+      </div>
+      <div class="settings-section">
+        <label class="settings-label">Authentication Status</label>
+        <div id="authStatusDisplay">
+          <span class="auth-status unauthenticated">Checking...</span>
+        </div>
+      </div>
+      <div class="settings-section">
+        <label class="settings-label">Extension Version</label>
+        <div class="settings-value">1.0.0</div>
+      </div>
+      <button id="openDashboardBtn" class="btn btn-primary mt-2">
+        Open Dashboard
+      </button>
+      <a href="#" id="signInLink" class="btn btn-secondary mt-2" style="text-decoration: none; display: none;">
+        Sign In
+      </a>
+    </section>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Loading Overlay -->
+    <div id="loader" class="loader-overlay">
+      <div class="spinner"></div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
