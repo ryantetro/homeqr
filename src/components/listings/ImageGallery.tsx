@@ -1,28 +1,39 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 interface ImageGalleryProps {
   images: string[];
   address: string;
 }
 
-// Helper function to proxy image URLs through our API
-function getProxiedImageUrl(url: string): string {
+// Helper function to get the best quality image URL
+// Use proxy for all Zillow images to ensure they load and handle CORS
+function getImageUrl(url: string): string {
   if (!url) return url;
+  
+  // If already a proxy URL, return as-is (prevent double-proxying)
+  if (url.startsWith('/api/image-proxy')) {
+    return url;
+  }
   
   const isZillowImageCDN = (url.includes('zillowstatic.com') || 
                            url.includes('photos.zillowstatic.com')) &&
                           /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
   
+  // Reject listing pages
   if (url.includes('/homedetails/') || url.includes('/homes/')) {
     return url;
   }
   
+  // For Zillow CDN images, always use proxy
+  // The proxy will handle enhancement and fallback if base URLs don't exist
   if (isZillowImageCDN) {
     return `/api/image-proxy?url=${encodeURIComponent(url)}`;
   }
   
+  // For non-Zillow images, return as-is
   return url;
 }
 
@@ -35,25 +46,29 @@ export default function ImageGallery({ images, address }: ImageGalleryProps) {
     return null;
   }
 
-  const proxiedImages = images.map(img => getProxiedImageUrl(img));
-  const mainImage = proxiedImages[mainImageIndex] || proxiedImages[0];
-  const thumbnailCount = proxiedImages.length - 1;
+  const processedImages = images.map(img => getImageUrl(img));
+  const mainImage = processedImages[mainImageIndex] || processedImages[0];
+  const thumbnailCount = processedImages.length - 1;
 
   return (
     <div className="space-y-4">
       {/* Main Image - Responsive Container */}
-      <div className="relative w-full aspect-[4/3] overflow-hidden rounded-lg bg-gray-100">
-        <img
+      <div className="relative w-full aspect-4/3 overflow-hidden rounded-lg bg-gray-100">
+        <Image
           src={mainImage}
           alt={address}
-          className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition-opacity duration-200"
+          fill
+          quality={100}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover cursor-pointer hover:opacity-95 transition-opacity duration-200"
           onClick={() => setSelectedImage(mainImage)}
-          referrerPolicy="no-referrer"
+          priority={mainImageIndex === 0}
+          unoptimized={mainImage.startsWith('/api/image-proxy')}
         />
       </div>
 
       {/* Collapsible Photo Gallery */}
-      {proxiedImages.length > 1 && (
+      {processedImages.length > 1 && (
         <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
@@ -61,7 +76,7 @@ export default function ImageGallery({ images, address }: ImageGalleryProps) {
           >
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold text-gray-900">
-                {proxiedImages.length} {proxiedImages.length === 1 ? 'Photo' : 'Photos'}
+                {processedImages.length} {processedImages.length === 1 ? 'Photo' : 'Photos'}
               </h3>
               <span className="text-xs text-gray-500">
                 ({thumbnailCount} {thumbnailCount === 1 ? 'thumbnail' : 'thumbnails'})
@@ -80,7 +95,7 @@ export default function ImageGallery({ images, address }: ImageGalleryProps) {
           {isExpanded && (
             <div className="p-4 bg-gray-50 border-t border-gray-200">
               <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3 max-h-96 overflow-y-auto">
-                {proxiedImages.map((img, idx) => {
+                {processedImages.map((img, idx) => {
                   if (idx === mainImageIndex) return null;
                   
                   return (
@@ -92,12 +107,14 @@ export default function ImageGallery({ images, address }: ImageGalleryProps) {
                         setIsExpanded(false);
                       }}
                     >
-                      <img
+                      <Image
                         src={img}
                         alt={`${address} - Image ${idx + 1}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
+                        fill
+                        quality={95}
+                        sizes="(max-width: 640px) 25vw, (max-width: 768px) 20vw, 16vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-200"
+                        unoptimized={img.startsWith('/api/image-proxy')}
                       />
                     </div>
                   );

@@ -66,7 +66,8 @@ export default function AuthForm({ mode }: AuthFormProps) {
           return;
         }
 
-        router.push('/dashboard');
+        // Redirect to onboarding for new users
+        router.push('/onboarding');
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,

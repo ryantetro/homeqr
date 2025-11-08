@@ -9,15 +9,15 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', ...props }, ref) => {
     const baseStyles =
-      'inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
+      'inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-300 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50';
     
     const variants = {
       primary:
-        'bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0',
+        'bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-95',
       secondary:
-        'bg-gray-100 text-gray-900 hover:bg-gray-200 shadow-sm hover:shadow',
+        'bg-gray-100 text-gray-900 hover:bg-gray-200 shadow-sm hover:shadow hover:-translate-y-0.5 active:translate-y-0 active:scale-95',
       outline:
-        'border-2 border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50 shadow-sm hover:shadow',
+        'border-2 border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50 shadow-sm hover:shadow hover:-translate-y-0.5 active:translate-y-0 active:scale-95',
     };
 
     const sizes = {

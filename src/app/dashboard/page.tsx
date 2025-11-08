@@ -1,8 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
-import StatsCard from '@/components/dashboard/StatsCard';
+import { calculateConversionRate } from '@/lib/utils/analytics';
+import ActivityFeed from '@/components/dashboard/ActivityFeed';
+import ExtensionLink from '@/components/dashboard/ExtensionLink';
+import TopPerformingProperties from '@/components/dashboard/TopPerformingProperties';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
-import { formatCurrency } from '@/lib/utils/format';
+import Card from '@/components/ui/Card';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -29,25 +32,44 @@ export default async function DashboardPage() {
   
   const listingIds = userListings?.map((l) => l.id) || [];
 
-  // Get total scans
-  let totalScans = 0;
-  if (listingIds.length > 0) {
-    const { data: scansData } = await supabase
-      .from('qrcodes')
-      .select('scan_count')
-      .in('listing_id', listingIds);
-    totalScans = scansData?.reduce((sum, qr) => sum + (qr.scan_count || 0), 0) || 0;
-  }
+  // Get ALL analytics data (SINGLE source of truth)
+  const { data: allAnalytics } = await supabase
+    .from('analytics')
+    .select('total_scans, total_leads')
+    .in('listing_id', listingIds);
 
-  // Get total leads
-  let leadsCount = 0;
-  if (listingIds.length > 0) {
-    const { count } = await supabase
-      .from('leads')
-      .select('*', { count: 'exact', head: true })
-      .in('listing_id', listingIds);
-    leadsCount = count || 0;
-  }
+  // Aggregate totals from analytics (ALL TIME) - analytics is the ONLY source of truth
+  const totalScans = allAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
+
+  // Get total leads (from analytics table, aggregated)
+  const totalLeadsFromAnalytics = allAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
+  
+  // Also get direct count from leads table as backup
+  const { count: leadsCountDirect } = listingIds.length > 0
+    ? await supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .in('listing_id', listingIds)
+    : { count: 0 };
+  
+  const leadsCount = Math.max(totalLeadsFromAnalytics, leadsCountDirect || 0);
+
+  // Calculate conversion rate (using all-time data) - QR scans only
+  const conversionRate = calculateConversionRate(totalScans, leadsCount);
+
+  // Get this week's scans and leads (for the "This week" cards)
+  const thisWeekStart = new Date();
+  thisWeekStart.setDate(thisWeekStart.getDate() - 7);
+  const { data: thisWeekAnalytics } = await supabase
+    .from('analytics')
+    .select('total_scans, total_leads')
+    .in('listing_id', listingIds)
+    .gte('date', thisWeekStart.toISOString().split('T')[0]);
+
+  const thisWeekScans =
+    thisWeekAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
+  const thisWeekLeads =
+    thisWeekAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
 
   // Get recent listings
   const { data: recentListings } = await supabase
@@ -58,106 +80,194 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false })
     .limit(5);
 
+  // Get ALL listings first (not just 5)
+  const { data: allListingsForTop } = await supabase
+    .from('listings')
+    .select('id, address, city, state')
+    .eq('user_id', user.id)
+    .eq('status', 'active');
+
+  const topPerformers = await Promise.all(
+    (allListingsForTop || []).map(async (listing) => {
+      const { data: listingAnalytics } = await supabase
+        .from('analytics')
+        .select('total_scans, total_leads')
+        .eq('listing_id', listing.id);
+
+      const listingScans =
+        listingAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
+      const listingLeads =
+        listingAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
+      const listingConversionRate = calculateConversionRate(listingScans, listingLeads);
+
+      return {
+        listing_id: listing.id,
+        address: listing.address,
+        city: listing.city,
+        state: listing.state,
+        total_scans: listingScans,
+        total_leads: listingLeads,
+        conversion_rate: listingConversionRate,
+      };
+    })
+  );
+
+  // Sort by activity (properties with activity first)
+  topPerformers.sort((a, b) => {
+    const aActivity = a.total_scans + a.total_leads;
+    const bActivity = b.total_scans + b.total_leads;
+    
+    // Properties with activity always come first
+    if (aActivity === 0 && bActivity > 0) return 1;
+    if (bActivity === 0 && aActivity > 0) return -1;
+    if (aActivity === 0 && bActivity === 0) return 0;
+    
+    // Then sort by conversion rate
+    if (Math.abs(b.conversion_rate - a.conversion_rate) > 0.1) {
+      return b.conversion_rate - a.conversion_rate;
+    }
+    
+    // Finally by total scans
+    return b.total_scans - a.total_scans;
+  });
+
   return (
     <div>
-      <div className="mb-10">
-        <h1 className="text-4xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
-        <p className="mt-3 text-lg text-gray-600">
-          Welcome back! Here's what's happening with your listings.
+      {/* Hero Section */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Welcome back
+        </h1>
+        <p className="text-gray-600">
+          Here's how your properties are performing
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <StatsCard
-          title="Active Listings"
-          value={listingsCount || 0}
-          icon="🏠"
-          subtitle="Total properties"
-        />
-        <StatsCard
-          title="Total Scans"
-          value={totalScans}
-          icon="📱"
-          subtitle="QR code scans"
-        />
-        <StatsCard
-          title="Total Leads"
-          value={leadsCount || 0}
-          icon="👥"
-          subtitle="Captured leads"
-        />
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card className="hover:shadow-lg transition-shadow">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
+                </div>
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-gray-900 mb-1">
+              {conversionRate.toFixed(1)}%
+            </p>
+            <p className="text-sm text-gray-500">
+              {leadsCount || 0} of {totalScans} converted
+            </p>
+          </div>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">QR Scans</p>
+                </div>
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekScans}</p>
+            <p className="text-sm text-gray-500">Past 7 days</p>
+          </div>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">New Leads</p>
+                </div>
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekLeads}</p>
+            <p className="text-sm text-gray-500">Past 7 days</p>
+          </div>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Properties</p>
+                </div>
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-gray-900 mb-1">{listingsCount || 0}</p>
+            <p className="text-sm text-gray-500">Active campaigns</p>
+          </div>
+        </Card>
       </div>
 
       {/* Quick Actions */}
-      <div className="mb-10">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">
-            Quick Actions
-          </h2>
-          <div className="flex flex-wrap gap-4">
-            <Link href="/dashboard/listings/new">
-              <Button variant="primary" size="lg">Create New Listing</Button>
+      <Card className="mb-8">
+        <div className="p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/dashboard/analytics">
+              <Button variant="primary" size="md">
+                View Analytics
+              </Button>
             </Link>
             <Link href="/dashboard/listings">
-              <Button variant="outline" size="lg">View All Listings</Button>
+              <Button variant="outline" size="md">
+                Manage Properties
+              </Button>
             </Link>
-            <Link href="/dashboard/analytics">
-              <Button variant="outline" size="lg">View Analytics</Button>
-            </Link>
+            <ExtensionLink />
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* Recent Listings */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-8 py-6 border-b border-gray-200 bg-gray-50/50">
-          <h2 className="text-xl font-bold text-gray-900">
-            Recent Listings
-          </h2>
-        </div>
-        <div className="p-8">
-          {recentListings && recentListings.length > 0 ? (
-            <div className="space-y-3">
-              {recentListings.map((listing: any) => (
-                <Link
-                  key={listing.id}
-                  href={`/dashboard/listings/${listing.id}`}
-                  className="block p-5 border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50/30 transition-all duration-200 hover:shadow-md group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 text-lg group-hover:text-blue-700 transition-colors">
-                        {listing.address}
-                      </h3>
-                      <p className="text-sm text-gray-600 mt-1.5 font-medium">
-                        {listing.price ? formatCurrency(listing.price) : 'Price not set'}
-                      </p>
-                    </div>
-                    <div className="text-right ml-6">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {listing.qrcodes?.[0]?.scan_count || 0}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">scans</p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Recent Activity */}
+        <Card>
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+              <span className="text-xs text-gray-500">Live</span>
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                <span className="text-3xl">🏠</span>
-              </div>
-              <p className="text-gray-600 text-lg mb-6 font-medium">
-                No listings yet. Create your first listing to get started!
-              </p>
-              <Link href="/dashboard/listings/new" className="inline-block">
-                <Button variant="primary" size="lg">Create Listing</Button>
-              </Link>
-            </div>
-          )}
-        </div>
+            <ActivityFeed />
+          </div>
+        </Card>
+
+        {/* Top Performers */}
+        <Card>
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-5">
+              Top Performing Properties
+            </h2>
+            <TopPerformingProperties performers={topPerformers} />
+          </div>
+        </Card>
       </div>
     </div>
   );

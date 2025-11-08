@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
+import { calculateConversionRate } from '@/lib/utils/analytics';
 import QRCodeDisplay from '@/components/qr/QRCodeDisplay';
 import LeadTable from '@/components/leads/LeadTable';
 import Card from '@/components/ui/Card';
@@ -35,6 +36,21 @@ export default async function ListingDetailPage({
 
   const leads = listing.leads || [];
   const qrCode = listing.qrcodes?.[0] || null;
+
+  // Get aggregated analytics data (the real source of truth)
+  const { data: analyticsData } = await supabase
+    .from('analytics')
+    .select('total_scans, total_leads, page_views')
+    .eq('listing_id', id);
+
+  // Aggregate analytics across all dates (SINGLE source of truth)
+  const totalScans = analyticsData?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
+  const totalLeadsFromAnalytics = analyticsData?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
+  const totalPageViews = analyticsData?.reduce((sum, a) => sum + (a.page_views || 0), 0) || 0;
+
+  // Analytics is the ONLY source of truth - no fallbacks
+  const displayScans = totalScans;
+  const displayLeads = Math.max(totalLeadsFromAnalytics, leads.length);
 
   // Parse images - check if image_url is a JSON array or single URL
   let allImages: string[] = [];
@@ -100,6 +116,17 @@ export default async function ListingDetailPage({
                 Active
               </span>
             </div>
+            <Link
+              href={listing.slug ? `/${listing.slug}` : `/listing/${listing.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              View Microsite
+            </Link>
           </div>
         </div>
       </div>
@@ -226,12 +253,30 @@ export default async function ListingDetailPage({
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Total Scans</p>
-                    <p className="text-xs text-gray-500">QR code views</p>
+                    <p className="text-sm font-medium text-gray-900">QR Scans</p>
+                    <p className="text-xs text-gray-500">QR code scans</p>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{qrCode?.scan_count || 0}</p>
+                <p className="text-2xl font-bold text-gray-900">{displayScans}</p>
               </div>
+
+              {totalPageViews > 0 && (
+                <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg border border-purple-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Page Views</p>
+                      <p className="text-xs text-gray-500">Microsite visits</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{totalPageViews}</p>
+                </div>
+              )}
               
               <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-100">
                 <div className="flex items-center gap-3">
@@ -245,8 +290,48 @@ export default async function ListingDetailPage({
                     <p className="text-xs text-gray-500">Captured contacts</p>
                   </div>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{leads.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{displayLeads}</p>
               </div>
+
+              {displayScans > 0 && displayLeads > 0 && (
+                <div className="flex items-center justify-between p-4 bg-amber-50 rounded-lg border border-amber-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">QR Scan Conversion</p>
+                      <p className="text-xs text-gray-500">Leads per QR scan</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {calculateConversionRate(displayScans, displayLeads).toFixed(1)}%
+                  </p>
+                </div>
+              )}
+              {totalPageViews > 0 && displayLeads > 0 && (
+                <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Overall Conversion</p>
+                      <p className="text-xs text-gray-500">Leads per total traffic</p>
+                    </div>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {calculateConversionRate(displayScans, displayLeads, {
+                      includePageViews: true,
+                      pageViews: totalPageViews,
+                    }).toFixed(1)}%
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Listing Info */}
@@ -275,7 +360,15 @@ export default async function ListingDetailPage({
               <h2 className="text-lg font-semibold text-gray-900">QR Code</h2>
             </div>
             <div className="p-6">
-              <QRCodeDisplay listingId={listing.id} existingQR={qrCode} />
+              <QRCodeDisplay 
+                listingId={listing.id} 
+                existingQR={qrCode ? {
+                  id: qrCode.id,
+                  qr_url: qrCode.qr_url || '',
+                  scan_count: qrCode.scan_count || 0,
+                } : null}
+                analyticsScanCount={displayScans}
+              />
             </div>
           </Card>
         </div>

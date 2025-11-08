@@ -310,26 +310,44 @@ function fallbackDOM() {
     }
   }
 
-  // Extract bedrooms
-  const beds = 
+  // Extract bedrooms - try multiple selectors and patterns
+  let beds = 
     document.querySelector('[data-testid="bed-bath-item-0"]')?.textContent?.trim() ||
     document.querySelector('[data-testid="bed"]')?.textContent?.trim() ||
     document.querySelector(".ds-bed-bath-living-area-row span")?.textContent?.match(/(\d+)\s*bed/i)?.[1] ||
     "";
+  
+  // If not found, search all text for bed pattern
+  if (!beds) {
+    const bedMatch = document.body.textContent?.match(/(\d+)\s*bed(?:room)?s?/i);
+    beds = bedMatch?.[1] || "";
+  }
 
-  // Extract bathrooms
-  const baths = 
+  // Extract bathrooms - try multiple selectors and patterns
+  let baths = 
     document.querySelector('[data-testid="bed-bath-item-1"]')?.textContent?.trim() ||
     document.querySelector('[data-testid="bath"]')?.textContent?.trim() ||
     document.querySelector(".ds-bed-bath-living-area-row span")?.textContent?.match(/(\d+(?:\.\d+)?)\s*bath/i)?.[1] ||
     "";
+  
+  // If not found, search all text for bath pattern
+  if (!baths) {
+    const bathMatch = document.body.textContent?.match(/(\d+(?:\.\d+)?)\s*bath(?:room)?s?/i);
+    baths = bathMatch?.[1] || "";
+  }
 
-  // Extract square feet
-  const sqft = 
+  // Extract square feet - try multiple selectors and patterns
+  let sqft = 
     document.querySelector('[data-testid="bed-bath-item-2"]')?.textContent?.trim() ||
     document.querySelector('[data-testid="sqft"]')?.textContent?.trim() ||
     document.querySelector(".ds-bed-bath-living-area-row span")?.textContent?.match(/([\d,]+)\s*sqft/i)?.[1]?.replace(/,/g, '') ||
     "";
+  
+  // If not found, search all text for sqft pattern
+  if (!sqft) {
+    const sqftMatch = document.body.textContent?.match(/([\d,]+)\s*sq\.?\s*ft\.?/i);
+    sqft = sqftMatch?.[1]?.replace(/,/g, '') || "";
+  }
 
   // Extract MLS ID - search all spans for MLS text
   let mlsId = 
@@ -350,9 +368,131 @@ function fallbackDOM() {
     }
   }
 
-  // Extract hero image
-  const img =
-    document.querySelector('img[src*="zillowstatic.com/fp"]:not([src*="zillow_web_"])')?.src ||
+  // Extract and filter images from the page
+  // Use getUrlResolutionScore to prioritize high-quality images
+  const getUrlResolutionScore = (url) => {
+    if (!url) return 0;
+    
+    // Base URLs (no suffix) - highest priority (original resolution)
+    if (/\/fp\/[a-f0-9]+\.jpg$/i.test(url)) return 6000;
+    
+    // Panorama variants (best to worst)
+    if (url.includes('-p_e.jpg')) return 5000;
+    if (url.includes('-p_d.jpg')) return 4000;
+    if (url.includes('-p_c.jpg')) return 3000;
+    if (url.includes('-p_b.jpg')) return 2000;
+    if (url.includes('-p_a.jpg')) return 1000;
+    
+    // Width-based patterns (-cc_ft_XXXX)
+    const ccFtMatch = url.match(/-cc_ft_(\d+)/);
+    if (ccFtMatch) {
+      const width = parseInt(ccFtMatch[1], 10);
+      return width; // Use actual width as score
+    }
+    
+    // Other patterns
+    if (url.includes('-h_g.jpg')) return 500; // Gallery thumbnails - low priority
+    if (url.includes('-thumb')) return 100;
+    if (url.includes('-small')) return 200;
+    
+    // Default for unrecognized patterns
+    return 100;
+  };
+
+  // Extract base image ID (hash) from URL for deduplication
+  const getBaseImageId = (url) => {
+    const match = url.match(/\/fp\/([a-f0-9]+)/i);
+    return match ? match[1] : null;
+  };
+
+  // Get all images from the page
+  const allImgElements = Array.from(document.querySelectorAll('img'));
+  
+  console.log(`[HomeQR] Found ${allImgElements.length} total images on page`);
+  
+  // Filter out images from unwanted sections (less aggressive)
+  const blacklistedSections = [
+    'similar-homes', 'similar-listings', 'neighborhood-photos', 
+    'nearby-homes', 'recommended-listings', 'ad-', 'advertisement-', 'sponsored-'
+  ];
+  
+  const allImages = allImgElements
+    .filter(img => {
+      // Only filter if we're very confident it's in a blacklisted section
+      let parent = img.parentElement;
+      let depth = 0;
+      while (parent && depth < 3) { // Reduced depth check
+        const className = parent.className?.toLowerCase() || '';
+        const id = parent.id?.toLowerCase() || '';
+        
+        // Only filter if className or id explicitly contains blacklisted section
+        // Don't filter based on text content (too aggressive)
+        if (blacklistedSections.some(section => 
+          className.includes(section) || id.includes(section)
+        )) {
+          console.log(`[HomeQR] Filtered image from blacklisted section: ${className || id}`);
+          return false;
+        }
+        
+        parent = parent.parentElement;
+        depth++;
+      }
+      return true;
+    })
+    .map(img => {
+      // Try multiple sources for lazy-loaded images
+      return img.src || 
+             img.getAttribute('data-src') || 
+             img.getAttribute('data-lazy-src') ||
+             img.getAttribute('data-original') ||
+             img.getAttribute('srcset')?.split(',')[0]?.trim().split(' ')[0] ||
+             '';
+    })
+    .filter(url => {
+      if (!url || typeof url !== 'string') return false;
+      // Must be from Zillow CDN
+      if (!url.includes('zillowstatic.com')) return false;
+      // Filter out logos and non-property images
+      if (url.includes('zillow_web_') || url.includes('/logo') || url.includes('/icon')) return false;
+      // Must be actual photo URLs (fp = full photo)
+      if (!url.includes('/fp/') && !url.includes('/photos/')) return false;
+      // Filter out listing page URLs
+      if (url.includes('/homedetails/') || url.includes('/homes/')) return false;
+      // Filter out very low resolution thumbnails (but be less strict)
+      const score = getUrlResolutionScore(url);
+      if (score < 300) return false; // Reduced threshold from 500 to 300
+      return true;
+    })
+    // Score each image
+    .map(url => ({ url, score: getUrlResolutionScore(url), baseId: getBaseImageId(url) }))
+    // Group by base image ID and keep highest resolution variant
+    .reduce((acc, item) => {
+      if (!item.baseId) {
+        acc.push(item);
+        return acc;
+      }
+      const existing = acc.find(i => i.baseId === item.baseId);
+      if (!existing || item.score > existing.score) {
+        if (existing) {
+          const index = acc.indexOf(existing);
+          acc[index] = item;
+        } else {
+          acc.push(item);
+        }
+      }
+      return acc;
+    }, [])
+    // Sort by score (highest first)
+    .sort((a, b) => b.score - a.score)
+    // Limit to top 30 images (main gallery typically has 20-30 photos max)
+    .slice(0, 30)
+    // Extract URLs
+    .map(item => item.url)
+  
+  console.log(`[HomeQR] After filtering: ${allImages.length} images`);
+
+  // Get hero image (first one or from meta tag)
+  const heroImg = allImages[0] || 
     document.querySelector('meta[property="og:image"]')?.content ||
     "";
 
@@ -366,8 +506,16 @@ function fallbackDOM() {
     bathrooms: baths,
     squareFeet: sqft,
     mlsId,
-    hasImage: !!img,
+    imageCount: allImages.length,
+    hasImage: !!heroImg,
   });
+
+  if (allImages.length > 0) {
+    console.log("[HomeQR] 📸 Found", allImages.length, "images via DOM fallback");
+    allImages.slice(0, 5).forEach((url, idx) => {
+      console.log(`[HomeQR]   Image ${idx + 1}:`, url.substring(0, 100));
+    });
+  }
 
   return {
     address,
@@ -380,8 +528,8 @@ function fallbackDOM() {
     squareFeet: sqft,
     status: "",
     mlsId,
-    imageUrl: img,
-    imageUrls: img ? [img] : [],
+    imageUrl: heroImg,
+    imageUrls: allImages,
   };
   } catch (err) {
     console.error("[HomeQR] Error in DOM fallback:", err);
@@ -466,14 +614,42 @@ function buildResult(prop) {
     const getUrlResolutionScore = (url) => {
       if (!url || typeof url !== 'string') return 0;
       
-      // Match patterns like: -cc_ft_1920.jpg, -cc_ft_960.jpg, etc.
+      // 1. Path-based sizes: /1024x768/, /2048x1536/, /3840x2160/
+      const pathSizeMatch = url.match(/\/(\d+)x\d+\//);
+      if (pathSizeMatch) {
+        const width = parseInt(pathSizeMatch[1], 10);
+        return width; // Use actual width as score
+      }
+      
+      // 2. Width parameters: _w1024, _w2048, _w3840
+      const widthParamMatch = url.match(/_w(\d+)/);
+      if (widthParamMatch) {
+        const width = parseInt(widthParamMatch[1], 10);
+        return width;
+      }
+      
+      // 3. Query parameters: ?w=2048, ?width=2048
+      const queryWidthMatch = url.match(/[?&](?:w|width)=(\d+)/);
+      if (queryWidthMatch) {
+        const width = parseInt(queryWidthMatch[1], 10);
+        return width;
+      }
+      
+      // 4. Suffix patterns: -large, -xlarge, -xxlarge, -hd, -full
+      if (url.includes('-full')) return 5000;
+      if (url.includes('-xxlarge')) return 4000;
+      if (url.includes('-hd')) return 3500;
+      if (url.includes('-xlarge')) return 3000;
+      if (url.includes('-large')) return 2000;
+      
+      // 5. Match patterns like: -cc_ft_1920.jpg, -cc_ft_960.jpg, etc.
       const widthMatch = url.match(/-cc_ft_(\d+)/);
       if (widthMatch) {
         const width = parseInt(widthMatch[1], 10);
         return width; // Use actual width as score
       }
       
-      // Panorama variants (higher letter = higher resolution typically)
+      // 6. Panorama variants (higher letter = higher resolution typically)
       // -p_a.jpg = lowest, -p_b.jpg, -p_c.jpg, -p_d.jpg, -p_e.jpg = highest
       if (url.includes('-p_')) {
         const panoramaMatch = url.match(/-p_([a-e])\.jpg/);
@@ -486,9 +662,9 @@ function buildResult(prop) {
         return 3000;
       }
       
-      // If no width pattern or panorama pattern, might be base URL (original resolution)
+      // 7. If no width pattern or panorama pattern, might be base URL (original resolution)
       // Check if it has any other resolution indicators
-      if (url.match(/\.(jpg|jpeg|png|webp)$/i) && !url.match(/[-_](ft_|p_|thumb|small|medium|large)/i)) {
+      if (url.match(/\.(jpg|jpeg|png|webp)$/i) && !url.match(/[-_](ft_|p_|thumb|small|medium|large|w\d+)/i)) {
         // Base URL without resolution suffix - might be original, give high priority
         return 6000;
       }
@@ -496,42 +672,118 @@ function buildResult(prop) {
       // Unknown pattern, give low priority
       return 1000;
     };
+    
+    // Helper function to try enhancing URL to highest resolution
+    // Strategy: Try to get original resolution by removing panorama suffix first
+    // If that doesn't work, try highest panorama variant
+    const enhanceImageUrl = (url) => {
+      if (!url || typeof url !== 'string') return url;
+      
+      // BEST: Try removing panorama suffix to get original/base resolution
+      // Base URLs without -p_ suffix are often the original high-resolution images
+      if (url.includes('-p_')) {
+        const baseUrl = url.replace(/-p_[a-e]\.jpg/i, '.jpg');
+        console.log("[HomeQR] 🎯 Trying base URL (original resolution, no panorama suffix):", baseUrl.substring(0, 100));
+        // Return base URL - this is often the highest quality original image
+        return baseUrl;
+      }
+      
+      // FALLBACK: If no panorama suffix, try adding -p_e (highest panorama variant)
+      // But only if URL doesn't already have resolution indicators
+      if (url.match(/\.jpg$/i) && !url.match(/[-_](p_|cc_ft_|large|xlarge|hd|full|w\d+)/i)) {
+        const enhanced = url.replace(/\.jpg$/i, '-p_e.jpg');
+        console.log("[HomeQR] 🔄 Enhanced base URL: added -p_e suffix (highest panorama)");
+        return enhanced;
+      }
+      
+      // Try to enhance -cc_ft_ width patterns
+      const ccFtMatch = url.match(/-cc_ft_(\d+)/);
+      if (ccFtMatch) {
+        const currentWidth = parseInt(ccFtMatch[1], 10);
+        if (currentWidth < 3840) {
+          // Try to upgrade to maximum width
+          const enhanced = url.replace(/-cc_ft_\d+/, '-cc_ft_3840');
+          console.log(`[HomeQR] 🔄 Enhanced width URL: ${currentWidth} → 3840 (maximum)`);
+          return enhanced;
+        }
+      }
+      
+      return url; // Return original if no enhancement possible
+    };
 
     const rawPhotos = (prop.media?.photos || prop.responsivePhotos || prop.photos || [])
       .map((p) => {
         // responsivePhotos have url field directly
-        if (p.url) return p.url;
+        if (p.url) {
+          const score = getUrlResolutionScore(p.url);
+          console.log("[HomeQR] 📸 Photo URL:", p.url.substring(0, 80), "score:", score);
+          
+          // Try to enhance the URL to higher resolution
+          const enhanced = enhanceImageUrl(p.url);
+          if (enhanced !== p.url) {
+            const enhancedScore = getUrlResolutionScore(enhanced);
+            console.log("[HomeQR] 🚀 Enhanced direct URL:", enhanced.substring(0, 80), "score:", enhancedScore);
+            return { url: enhanced, score: enhancedScore };
+          }
+          
+          return { url: p.url, score };
+        }
         
         // Check for mixedSources (responsivePhotos format)
         if (p.mixedSources?.jpeg?.length) {
           const j = p.mixedSources.jpeg;
+          console.log(`[HomeQR] 📸 Found ${j.length} JPEG variants in mixedSources`);
+          
           // Sort by resolution score (highest first) and take the best
           const sorted = j
             .filter(jpeg => jpeg?.url)
+            .map(jpeg => ({
+              url: jpeg.url,
+              score: getUrlResolutionScore(jpeg.url)
+            }))
             .sort((a, b) => {
-              const scoreA = getUrlResolutionScore(a.url);
-              const scoreB = getUrlResolutionScore(b.url);
               // If scores are equal, prefer longer URLs (might have more detail)
-              if (scoreA === scoreB) {
+              if (a.score === b.score) {
                 return (b.url?.length || 0) - (a.url?.length || 0);
               }
-              return scoreB - scoreA;
+              return b.score - a.score;
             });
           
-          const bestUrl = sorted[0]?.url;
-          if (bestUrl) {
-            console.log("[HomeQR] Selected photo URL:", bestUrl.substring(0, 100), "score:", getUrlResolutionScore(bestUrl));
-            return bestUrl;
+          // Log all variants with scores
+          sorted.forEach((item, idx) => {
+            console.log(`[HomeQR]   Variant ${idx + 1}:`, item.url.substring(0, 80), "score:", item.score);
+          });
+          
+          const best = sorted[0];
+          if (best?.url) {
+            console.log("[HomeQR] ✅ Selected best photo URL:", best.url.substring(0, 100), "score:", best.score);
+            
+            // Try to enhance the URL to higher resolution
+            const enhanced = enhanceImageUrl(best.url);
+            if (enhanced !== best.url) {
+              console.log("[HomeQR] 🚀 Using enhanced URL:", enhanced.substring(0, 100));
+              return { url: enhanced, score: getUrlResolutionScore(enhanced) };
+            }
+            
+            return best;
           }
           // Fallback to last or first if sorting failed
-          return j[j.length - 1]?.url || j[0]?.url;
+          const fallback = j[j.length - 1]?.url || j[0]?.url;
+          if (fallback) {
+            return { url: fallback, score: getUrlResolutionScore(fallback) };
+          }
         }
         
         // Fallback to other fields
-        return p.hiRes || p.href || p.src;
+        const fallbackUrl = p.hiRes || p.href || p.src;
+        if (fallbackUrl) {
+          return { url: fallbackUrl, score: getUrlResolutionScore(fallbackUrl) };
+        }
+        return null;
       })
-      .filter((u) => {
-        if (!u || typeof u !== 'string') return false;
+      .filter((item) => {
+        if (!item || !item.url || typeof item.url !== 'string') return false;
+        const u = item.url;
         
         // Must be from Zillow CDN
         if (!u.includes("zillowstatic.com")) return false;
@@ -544,11 +796,29 @@ function buildResult(prop) {
         
         // Filter out listing page URLs (should be image URLs only)
         if (u.includes('/homedetails/') || u.includes('/homes/')) return false;
-        
+
         return true;
-      });
+      })
+      // Sort all photos by score (highest first) to ensure best quality
+      .sort((a, b) => {
+        if (a.score === b.score) {
+          return (b.url?.length || 0) - (a.url?.length || 0);
+        }
+        return b.score - a.score;
+      })
+      // Extract just the URLs
+      .map(item => item.url);
 
     const photos = uniqueUrls(rawPhotos).slice(0, 50);
+    
+    // Log final photo selection
+    if (photos.length > 0) {
+      console.log(`[HomeQR] 📊 Final photo selection: ${photos.length} images`);
+      photos.slice(0, 3).forEach((url, idx) => {
+        const score = getUrlResolutionScore(url);
+        console.log(`[HomeQR]   Photo ${idx + 1}:`, url.substring(0, 100), "score:", score);
+      });
+    }
 
     const result = {
       address,

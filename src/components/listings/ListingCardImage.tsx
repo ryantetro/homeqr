@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 interface ListingCardImageProps {
   imageUrl: string | null;
@@ -20,13 +21,36 @@ export default function ListingCardImage({ imageUrl, address }: ListingCardImage
     );
   }
 
+  // Use proxy for Zillow images to ensure they load
+  const getBestImageUrl = (url: string): string => {
+    if (!url) return url;
+    
+    // If already a proxy URL, return as-is (prevent double-proxying)
+    if (url.startsWith('/api/image-proxy')) {
+      return url;
+    }
+    
+    // Use proxy for all Zillow CDN images
+    if (url.includes('zillowstatic.com') || url.includes('photos.zillowstatic.com')) {
+      return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+    }
+    
+    return url;
+  };
+
+  const optimizedUrl = getBestImageUrl(imageUrl);
+
   return (
-    <div className="w-full h-48 rounded-lg mb-4 overflow-hidden bg-gray-100">
-      <img
-        src={imageUrl}
+    <div className="relative w-full h-48 rounded-lg mb-4 overflow-hidden bg-gray-100">
+      <Image
+        src={optimizedUrl}
         alt={address}
-        className="w-full h-full object-cover"
+        fill
+        quality={95}
+        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        className="object-cover"
         onError={() => setImageError(true)}
+        unoptimized={optimizedUrl.startsWith('/api/image-proxy')}
       />
     </div>
   );

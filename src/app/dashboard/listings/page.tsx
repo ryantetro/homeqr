@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import { formatCurrency } from '@/lib/utils/format';
+import { calculateConversionRate } from '@/lib/utils/analytics';
 import Card from '@/components/ui/Card';
 import ListingCardImage from '@/components/listings/ListingCardImage';
 
@@ -22,17 +23,46 @@ export default async function ListingsPage() {
     .eq('status', 'active')
     .order('created_at', { ascending: false });
 
+  // Get analytics for conversion rates
+  const listingIds = listings?.map((l) => l.id) || [];
+  const { data: analytics } = listingIds.length > 0
+    ? await supabase
+        .from('analytics')
+        .select('listing_id, total_scans, total_leads, page_views')
+        .in('listing_id', listingIds)
+    : { data: null };
+  
+  // Aggregate analytics by listing
+  const analyticsMap = new Map<string, { scans: number; leads: number; pageViews: number }>();
+  analytics?.forEach((a) => {
+    const existing = analyticsMap.get(a.listing_id) || { scans: 0, leads: 0, pageViews: 0 };
+    analyticsMap.set(a.listing_id, {
+      scans: existing.scans + (a.total_scans || 0),
+      leads: existing.leads + (a.total_leads || 0),
+      pageViews: existing.pageViews + (a.page_views || 0),
+    });
+  });
+
+  // Create a map of listing_id to conversion rate (using already-aggregated analyticsMap)
+  const conversionMap = new Map<string, number>();
+  
+  // Calculate conversion rate for each listing using the aggregated analytics data
+  analyticsMap.forEach((totals, listingId) => {
+    const rate = calculateConversionRate(totals.scans, totals.leads);
+    conversionMap.set(listingId, rate);
+  });
+
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Listings</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Your Properties</h1>
           <p className="mt-2 text-gray-600">
-            Manage your property listings and QR codes
+            Manage QR codes and track performance
           </p>
         </div>
         <Link href="/dashboard/listings/new">
-          <Button variant="primary">Create New Listing</Button>
+          <Button variant="outline" size="sm">Add Property</Button>
         </Link>
       </div>
 
@@ -80,6 +110,12 @@ export default async function ListingsPage() {
             // Get proxied image URL if it's a Zillow CDN image
             const getProxiedImageUrl = (url: string): string => {
               if (!url) return url;
+              
+              // If already a proxy URL, return as-is (prevent double-proxying)
+              if (url.startsWith('/api/image-proxy')) {
+                return url;
+              }
+              
               const isZillowImageCDN = (url.includes('zillowstatic.com') || 
                                        url.includes('photos.zillowstatic.com')) &&
                                       (url.includes('/photo/') || 
@@ -114,11 +150,37 @@ export default async function ListingsPage() {
                         {formatCurrency(listing.price)}
                       </p>
                     )}
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>
-                        {listing.qrcodes?.[0]?.scan_count || 0} scans
-                      </span>
-                      <span>View Details →</span>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {/* Use analytics data as SINGLE source of truth */}
+                        {(() => {
+                          const analytics = analyticsMap.get(listing.id);
+                          // Analytics is the ONLY source of truth - no fallback to qrcodes
+                          const displayScans = analytics?.scans || 0;
+                          const displayPageViews = analytics?.pageViews || 0;
+                          const displayLeads = analytics?.leads || 0;
+                          const conversionRate = conversionMap.get(listing.id) || 0;
+                          
+                          return (
+                            <>
+                              <span className="text-gray-600">
+                                {displayScans} QR scans
+                              </span>
+                              {displayPageViews > 0 && (
+                                <span className="text-gray-600">
+                                  {displayPageViews} views
+                                </span>
+                              )}
+                              {displayScans > 0 && displayLeads > 0 && conversionRate > 0 && (
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-semibold">
+                                  {conversionRate.toFixed(1)}% conversion
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <span className="text-gray-600">View Details →</span>
                     </div>
                   </div>
                 </Card>

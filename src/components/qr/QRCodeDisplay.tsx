@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import Button from '@/components/ui/Button';
 import { useQRCode } from '@/hooks/useQRCode';
 
@@ -11,12 +12,48 @@ interface QRCodeDisplayProps {
     qr_url: string;
     scan_count: number;
   } | null;
+  analyticsScanCount?: number; // Pass analytics scan count as prop
   onQRGenerated?: (qr: any) => void;
 }
 
-export default function QRCodeDisplay({ listingId, existingQR, onQRGenerated }: QRCodeDisplayProps) {
+export default function QRCodeDisplay({ listingId, existingQR, analyticsScanCount, onQRGenerated }: QRCodeDisplayProps) {
   const { generateQR, loading, error } = useQRCode();
   const [qrData, setQrData] = useState(existingQR);
+  const [scanCount, setScanCount] = useState(existingQR?.scan_count || 0);
+
+  // Use analytics scan count if provided (more accurate), otherwise use QR code scan_count
+  useEffect(() => {
+    if (analyticsScanCount !== undefined) {
+      setScanCount(analyticsScanCount);
+    } else if (existingQR?.scan_count !== undefined) {
+      setScanCount(existingQR.scan_count);
+    }
+  }, [analyticsScanCount, existingQR?.scan_count]);
+
+  // Periodically refresh scan count from database
+  useEffect(() => {
+    const refreshScanCount = async () => {
+      const supabase = createClient();
+      // Try to get from analytics first (more accurate)
+      if (analyticsScanCount === undefined) {
+        const { data: qrCode } = await supabase
+          .from('qrcodes')
+          .select('scan_count')
+          .eq('listing_id', listingId)
+          .single();
+        
+        if (qrCode) {
+          setScanCount(qrCode.scan_count || 0);
+        }
+      }
+    };
+
+    // Refresh immediately and then every 10 seconds
+    refreshScanCount();
+    const interval = setInterval(refreshScanCount, 10000);
+
+    return () => clearInterval(interval);
+  }, [listingId, analyticsScanCount]);
 
   const handleGenerate = async () => {
     try {
@@ -40,6 +77,11 @@ export default function QRCodeDisplay({ listingId, existingQR, onQRGenerated }: 
     document.body.removeChild(link);
   };
 
+  const handleDownloadPDF = () => {
+    if (!qrData?.id) return;
+    window.open(`/api/qr/${listingId}/pdf`, '_blank');
+  };
+
   if (qrData?.qr_url) {
     return (
       <div className="space-y-5">
@@ -57,7 +99,7 @@ export default function QRCodeDisplay({ listingId, existingQR, onQRGenerated }: 
                 Scan Count
               </p>
               <p className="text-2xl font-bold text-blue-600">
-                {qrData.scan_count || 0}
+                {scanCount}
               </p>
             </div>
           </div>
@@ -69,7 +111,15 @@ export default function QRCodeDisplay({ listingId, existingQR, onQRGenerated }: 
             className="w-full"
             size="md"
           >
-            Download QR Code
+            Download QR Code (PNG)
+          </Button>
+          <Button 
+            onClick={handleDownloadPDF} 
+            variant="primary" 
+            className="w-full"
+            size="md"
+          >
+            Download QR Sticker (PDF)
           </Button>
           <Button 
             onClick={handleGenerate} 

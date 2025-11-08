@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { createClient } from '@/lib/supabase/client';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
+import ImageUpload from '@/components/onboarding/ImageUpload';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -18,6 +19,10 @@ export default function SettingsPage() {
     email: '',
     phone: '',
     brokerage: '',
+    license_number: '',
+    calendly_url: '',
+    avatar_url: null as string | null,
+    logo_url: null as string | null,
   });
 
   useEffect(() => {
@@ -45,6 +50,10 @@ export default function SettingsPage() {
           email: data.email || user.email || '',
           phone: data.phone || '',
           brokerage: data.brokerage || '',
+          license_number: data.license_number || '',
+          calendly_url: data.calendly_url || '',
+          avatar_url: data.avatar_url || null,
+          logo_url: data.logo_url || null,
         });
       }
     } catch (err: any) {
@@ -69,6 +78,10 @@ export default function SettingsPage() {
           full_name: profile.full_name,
           phone: profile.phone,
           brokerage: profile.brokerage,
+          license_number: profile.license_number || null,
+          calendly_url: profile.calendly_url || null,
+          avatar_url: profile.avatar_url || null,
+          logo_url: profile.logo_url || null,
         })
         .eq('id', user.id);
 
@@ -80,6 +93,36 @@ export default function SettingsPage() {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (type: 'avatar' | 'logo', file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', type);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+        throw new Error(errorData.error || `Upload failed: ${response.status} ${response.statusText}`);
+      }
+
+      const { url } = await response.json();
+      setProfile((prev) => ({
+        ...prev,
+        [type === 'avatar' ? 'avatar_url' : 'logo_url']: url,
+      }));
+      return url;
+    } catch (err) {
+      console.error('Upload error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Upload failed';
+      setError(errorMessage);
+      return null;
     }
   };
 
@@ -109,6 +152,16 @@ export default function SettingsPage() {
             </h2>
 
             <div className="space-y-4">
+              <ImageUpload
+                label="Profile Photo (Headshot)"
+                currentUrl={profile.avatar_url}
+                onUpload={(file) => handleImageUpload('avatar', file)}
+              />
+              <ImageUpload
+                label="Brokerage Logo"
+                currentUrl={profile.logo_url}
+                onUpload={(file) => handleImageUpload('logo', file)}
+              />
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Full Name
@@ -158,6 +211,35 @@ export default function SettingsPage() {
                   onChange={(e) => setProfile({ ...profile, brokerage: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  License Number
+                </label>
+                <input
+                  type="text"
+                  value={profile.license_number}
+                  onChange={(e) => setProfile({ ...profile, license_number: e.target.value })}
+                  placeholder="Optional"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Calendly URL
+                </label>
+                <input
+                  type="url"
+                  value={profile.calendly_url}
+                  onChange={(e) => setProfile({ ...profile, calendly_url: e.target.value })}
+                  placeholder="https://calendly.com/your-username"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Your Calendly scheduling link for "Schedule a Showing" button
+                </p>
               </div>
             </div>
           </div>

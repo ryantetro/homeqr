@@ -12,6 +12,8 @@ create table public.users (
   phone text,
   brokerage text,
   avatar_url text,
+  license_number text,
+  calendly_url text,
   role text default 'agent',
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
@@ -33,9 +35,13 @@ create table public.listings (
   bathrooms numeric,
   square_feet integer,
   status text default 'active',
+  slug text unique,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
+
+-- Create index on slug for fast lookups
+create index if not exists listings_slug_idx on public.listings(slug);
 
 -- QR CODES TABLE
 create table public.qrcodes (
@@ -113,6 +119,11 @@ create policy "Agents can access own listings"
   on public.listings for all
   using (auth.uid() = user_id);
 
+-- Public can view active listings (for slug-based routes)
+create policy "Public can view active listings"
+  on public.listings for select
+  using (status = 'active');
+
 -- Agents can access QR codes for their listings
 create policy "Agents can access own QR codes"
   on public.qrcodes for all
@@ -149,6 +160,17 @@ create policy "Agents can access own analytics"
       select id from public.listings where user_id = auth.uid()
     )
   );
+
+-- Public can insert analytics (for tracking scans and page views)
+create policy "Public can insert analytics"
+  on public.analytics for insert
+  with check (true);
+
+-- Public can update analytics (for incrementing scan/page view counts)
+create policy "Public can update analytics"
+  on public.analytics for update
+  using (true)
+  with check (true);
 
 -- Agents can access their own subscriptions
 create policy "Agents can access own subscriptions"

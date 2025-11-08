@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     // Verify the listing belongs to the user
     const { data: listing, error: listingError } = await supabase
       .from('listings')
-      .select('id, user_id')
+      .select('id, user_id, slug')
       .eq('id', listing_id)
       .eq('user_id', user.id)
       .single();
@@ -32,10 +32,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 });
     }
 
-    // Generate redirect URL
+    // Generate redirect URL - use slug if available, otherwise fall back to ID
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const scanUrl = redirect_url || `${siteUrl}/api/scan/qr/${listing_id}`;
-    const finalRedirectUrl = `${siteUrl}/listing/${listing_id}`;
+    const finalRedirectUrl = listing.slug 
+      ? `${siteUrl}/${listing.slug}`
+      : `${siteUrl}/listing/${listing_id}`;
 
     // Generate QR code as data URL
     const qrDataUrl = await QRCode.toDataURL(scanUrl, {
@@ -56,17 +58,19 @@ export async function POST(request: NextRequest) {
     let isNewQR = false;
 
     if (existingQR && !existingQRError) {
-      // Return existing QR code without regenerating
-      qrData = existingQR;
-      return NextResponse.json({
-        id: qrData.id,
-        qr_url: qrData.qr_url,
-        listing_id: listing_id, // Ensure listing_id is always included
-        scan_count: qrData.scan_count,
-        redirect_url: qrData.redirect_url,
-        message: 'Using existing QR code for this listing.',
-        isExisting: true,
-      });
+      // Update existing QR code with new URL and image
+      const { data, error } = await supabase
+        .from('qrcodes')
+        .update({
+          qr_url: qrDataUrl,
+          redirect_url: finalRedirectUrl,
+        })
+        .eq('id', existingQR.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      qrData = data;
     } else {
       // Create new QR code
       const { data, error } = await supabase
@@ -88,10 +92,10 @@ export async function POST(request: NextRequest) {
       id: qrData.id,
       qr_url: qrData.qr_url,
       listing_id: qrData.listing_id,
-      scan_count: qrData.scan_count,
+      scan_count: qrData.scan_count || 0,
       redirect_url: qrData.redirect_url,
-      message: 'QR code generated successfully!',
-      isExisting: false,
+      message: isNewQR ? 'QR code generated successfully!' : 'QR code regenerated successfully!',
+      isExisting: !isNewQR,
     });
   } catch (error: any) {
     console.error('QR generation error:', error);

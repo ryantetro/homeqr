@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { generateUniqueSlug } from '@/lib/utils/slug';
 
 export async function GET(request: NextRequest) {
   try {
@@ -111,6 +112,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Address is required' }, { status: 400 });
     }
 
+    // Generate unique slug from address
+    const slug = await generateUniqueSlug(
+      address,
+      async (slugToCheck) => {
+        const { data } = await supabase
+          .from('listings')
+          .select('id')
+          .eq('slug', slugToCheck)
+          .single();
+        return !!data;
+      }
+    );
+
+    // Create listing with slug
     const { data: listing, error } = await supabase
       .from('listings')
       .insert({
@@ -130,12 +145,41 @@ export async function POST(request: NextRequest) {
         bathrooms: bathrooms ? parseFloat(bathrooms) : null,
         square_feet: square_feet ? parseInt(square_feet) : null,
         status: 'active',
+        slug,
       })
       .select()
       .single();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Auto-generate QR code for the new listing
+    try {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+      const scanUrl = `${siteUrl}/api/scan/qr/${listing.id}`;
+      const finalRedirectUrl = `${siteUrl}/${slug}`;
+
+      // Import QRCode dynamically to avoid loading it on every request
+      const QRCode = (await import('qrcode')).default;
+      const qrDataUrl = await QRCode.toDataURL(scanUrl, {
+        errorCorrectionLevel: 'M',
+        type: 'image/png',
+        width: 500,
+        margin: 2,
+      });
+
+      // Create QR code record
+      await supabase
+        .from('qrcodes')
+        .insert({
+          listing_id: listing.id,
+          qr_url: qrDataUrl,
+          redirect_url: finalRedirectUrl,
+        });
+    } catch (qrError) {
+      // Log error but don't fail listing creation
+      console.error('Failed to auto-generate QR code:', qrError);
     }
 
     return NextResponse.json({ data: listing });
