@@ -26,11 +26,12 @@ function getSessionId(request: NextRequest): string {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const qrId = params.id;
+    const { id } = await params;
+    const qrId = id;
     
     console.log('[Scan] ===== OLD ROUTE SCAN DETECTED =====');
     console.log('[Scan] QR ID:', qrId);
