@@ -29,25 +29,18 @@ export default function DashboardClient({
 
   useEffect(() => {
     // Check for trial activation redirect
-    if (searchParams.get('trial') === 'activated') {
-      setShowWelcome(true);
-      return;
-    }
-
+    const trialActivated = searchParams.get('trial') === 'activated';
+    
     // Check if trial expired (past_due or period ended)
+    let shouldShowExpired = false;
     if (subscription) {
       if (subscription.status === 'past_due') {
-        setShowExpiredModal(true);
-        return;
-      }
-      
-      // Check if trial period has ended
-      if (subscription.current_period_end) {
+        shouldShowExpired = true;
+      } else if (subscription.current_period_end) {
         const endDate = new Date(subscription.current_period_end);
         const now = new Date();
         if (endDate < now && subscription.status !== 'active') {
-          setShowExpiredModal(true);
-          return;
+          shouldShowExpired = true;
         }
       }
     }
@@ -57,18 +50,26 @@ export default function DashboardClient({
     // - No active subscription (or inactive status)
     // - Onboarding not completed
     // - Not showing welcome screen or expired modal
-    if (!isBetaUser && 
+    const shouldShowTrialModal = !isBetaUser && 
         (!subscription || !['active', 'trialing'].includes(subscription.status)) && 
         !onboardingCompleted &&
-        !showWelcome &&
-        !showExpiredModal) {
-      // Small delay to let page load
-      const timer = setTimeout(() => {
-        setShowTrialModal(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [subscription, isBetaUser, onboardingCompleted, searchParams, showWelcome, showExpiredModal]);
+        !trialActivated &&
+        !shouldShowExpired;
+
+    // Defer state updates to avoid cascading renders
+    queueMicrotask(() => {
+      if (trialActivated) {
+        setShowWelcome(true);
+      } else if (shouldShowExpired) {
+        setShowExpiredModal(true);
+      } else if (shouldShowTrialModal) {
+        // Small delay to let page load
+        setTimeout(() => {
+          setShowTrialModal(true);
+        }, 500);
+      }
+    });
+  }, [subscription, isBetaUser, onboardingCompleted, searchParams]);
 
   const handleStartTrial = () => {
     setShowTrialModal(true);

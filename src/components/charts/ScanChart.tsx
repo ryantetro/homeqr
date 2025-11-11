@@ -11,6 +11,30 @@ interface ScanChartProps {
   }>;
 }
 
+const CustomTooltip = ({ 
+  active, 
+  payload, 
+  label 
+}: {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+}) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+        <p className="font-semibold text-gray-900 mb-2">{label}</p>
+        {payload.map((entry, index) => (
+          <p key={index} className="text-sm" style={{ color: entry.color }}>
+            {entry.name}: <span className="font-semibold">{entry.value}</span>
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function ScanChart({ data }: ScanChartProps) {
   // Calculate optimal y-axis domain based on actual data
   const maxValue = Math.max(
@@ -21,22 +45,6 @@ export default function ScanChart({ data }: ScanChartProps) {
   // Add 10% padding to top, but ensure minimum domain
   const yAxisMax = Math.ceil(maxValue * 1.1);
   const yAxisDomain = [0, yAxisMax];
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-semibold text-gray-900 mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: <span className="font-semibold">{entry.value}</span>
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <ResponsiveContainer width="100%" height={320}>

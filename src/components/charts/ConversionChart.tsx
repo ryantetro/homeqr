@@ -11,6 +11,40 @@ interface ConversionChartProps {
   }>;
 }
 
+const CustomTooltip = ({ 
+  active, 
+  payload, 
+  label 
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: { conversionRate: number; scans: number; leads: number } }>;
+  label?: string;
+}) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-xl">
+        <p className="font-semibold text-gray-900 mb-2">{label}</p>
+        <div className="space-y-1">
+          <p className="text-sm">
+            <span className="text-gray-600">Conversion Rate:</span>{' '}
+            <span className="font-semibold text-blue-600">{data.conversionRate.toFixed(2)}%</span>
+          </p>
+          <p className="text-sm">
+            <span className="text-gray-600">Scans:</span>{' '}
+            <span className="font-semibold text-gray-900">{data.scans}</span>
+          </p>
+          <p className="text-sm">
+            <span className="text-gray-600">Leads:</span>{' '}
+            <span className="font-semibold text-green-600">{data.leads}</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function ConversionChart({ data }: ConversionChartProps) {
   const chartData = useMemo(() => {
     return data.map((item) => {
@@ -39,32 +73,6 @@ export default function ConversionChart({ data }: ConversionChartProps) {
   const minRate = Math.min(...chartData.filter((d) => d.conversionRate > 0).map((d) => d.conversionRate), 0);
   const range = maxRate - minRate;
   const yAxisDomain = [Math.max(0, minRate - range * 0.1), maxRate + range * 0.1];
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-xl">
-          <p className="font-semibold text-gray-900 mb-2">{label}</p>
-          <div className="space-y-1">
-            <p className="text-sm">
-              <span className="text-gray-600">Conversion Rate:</span>{' '}
-              <span className="font-semibold text-blue-600">{data.conversionRate.toFixed(2)}%</span>
-            </p>
-            <p className="text-sm">
-              <span className="text-gray-600">Scans:</span>{' '}
-              <span className="font-semibold text-gray-900">{data.scans}</span>
-            </p>
-            <p className="text-sm">
-              <span className="text-gray-600">Leads:</span>{' '}
-              <span className="font-semibold text-green-600">{data.leads}</span>
-            </p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   if (chartData.length === 0) {
     return (

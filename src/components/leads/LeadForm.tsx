@@ -6,7 +6,7 @@ import Button from '@/components/ui/Button';
 interface LeadFormProps {
   listingId: string;
   agentName?: string;
-  onSubmit?: (lead: any) => void;
+  onSubmit?: (lead: { id: string; name: string; email: string | null; phone: string | null }) => void;
 }
 
 export default function LeadForm({ listingId, agentName, onSubmit }: LeadFormProps) {
@@ -55,8 +55,8 @@ export default function LeadForm({ listingId, agentName, onSubmit }: LeadFormPro
       if (onSubmit) {
         onSubmit(data);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit lead');
     } finally {
       setLoading(false);
     }
@@ -141,7 +141,7 @@ export default function LeadForm({ listingId, agentName, onSubmit }: LeadFormPro
           className="mt-1 h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
         />
         <label htmlFor="scheduleTour" className="ml-3 text-sm text-gray-700">
-          I'm interested in scheduling a tour
+          I&apos;m interested in scheduling a tour
         </label>
       </div>
       {error && (

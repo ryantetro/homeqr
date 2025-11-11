@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Button from '@/components/ui/Button';
 import { useQRCode } from '@/hooks/useQRCode';
+import type { GenerateQRResponse } from '@/types/api';
 
 interface QRCodeDisplayProps {
   listingId: string;
@@ -13,7 +14,7 @@ interface QRCodeDisplayProps {
     scan_count: number;
   } | null;
   analyticsScanCount?: number; // Pass analytics scan count as prop
-  onQRGenerated?: (qr: any) => void;
+  onQRGenerated?: (qr: GenerateQRResponse) => void;
 }
 
 export default function QRCodeDisplay({ listingId, existingQR, analyticsScanCount, onQRGenerated }: QRCodeDisplayProps) {
@@ -23,11 +24,13 @@ export default function QRCodeDisplay({ listingId, existingQR, analyticsScanCoun
 
   // Use analytics scan count if provided (more accurate), otherwise use QR code scan_count
   useEffect(() => {
-    if (analyticsScanCount !== undefined) {
-      setScanCount(analyticsScanCount);
-    } else if (existingQR?.scan_count !== undefined) {
-      setScanCount(existingQR.scan_count);
-    }
+    queueMicrotask(() => {
+      if (analyticsScanCount !== undefined) {
+        setScanCount(analyticsScanCount);
+      } else if (existingQR?.scan_count !== undefined) {
+        setScanCount(existingQR.scan_count);
+      }
+    });
   }, [analyticsScanCount, existingQR?.scan_count]);
 
   // Periodically refresh scan count from database

@@ -12,6 +12,7 @@ interface LeadTableProps {
     listing_address?: string;
     listing_city?: string;
     listing_state?: string;
+    status?: Status;
   })[];
   onRefresh?: () => void;
 }
@@ -73,7 +74,7 @@ export default function LeadTable({ leads, onRefresh }: LeadTableProps) {
 
     // Status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter((lead) => lead.status === statusFilter);
+      filtered = filtered.filter((lead) => (lead.status || 'new') === statusFilter);
     }
 
     // Property filter
