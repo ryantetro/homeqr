@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { GenerateQRResponse } from '@/types/api';
 
-export function useQRCode() {
+function useQRCode() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,8 +27,9 @@ export function useQRCode() {
       }
 
       return data as GenerateQRResponse;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to generate QR code';
+      setError(message);
       throw err;
     } finally {
       setLoading(false);
@@ -41,6 +42,9 @@ export function useQRCode() {
     error,
   };
 }
+
+export { useQRCode };
+
 
 
 

@@ -11,7 +11,6 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import TopPerformingProperties from '@/components/dashboard/TopPerformingProperties';
 import Card from '@/components/ui/Card';
 import { formatDate } from '@/lib/utils/format';
-import RepairAnalyticsButton from '@/components/dashboard/RepairAnalyticsButton';
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
@@ -56,17 +55,18 @@ export default async function AnalyticsPage() {
     return acc;
   }, {} as Record<string, number>);
   
-  console.log('[Analytics Page] Scan sessions by listing:', scanSessionsByListing);
-  
   // Debug: Show which listings have scan sessions but NO analytics
   const listingsWithScanSessionsButNoAnalytics = Object.keys(scanSessionsByListing || {}).filter(
     listingId => !analytics?.some(a => a.listing_id === listingId)
   );
   
-  console.log('[Analytics Page] Listings with scan sessions BUT NO analytics records:', 
-    listingsWithScanSessionsButNoAnalytics.length,
-    listingsWithScanSessionsButNoAnalytics
-  );
+  // Only log if there are issues
+  if (listingsWithScanSessionsButNoAnalytics.length > 0) {
+    console.warn('[Analytics Page] Listings with scan sessions BUT NO analytics records:', 
+      listingsWithScanSessionsButNoAnalytics.length,
+      listingsWithScanSessionsButNoAnalytics
+    );
+  }
 
   // Build traffic source breakdown (visits + leads)
   const trafficSourceBreakdown: Record<string, { visits: number; leads: number }> = {
@@ -127,11 +127,10 @@ export default async function AnalyticsPage() {
   const totalPageViews = analytics?.reduce((sum, a) => sum + (a.page_views || 0), 0) || 0;
   const totalUniqueVisitors = new Set(allScanSessions?.map((s) => s.session_id) || []).size;
 
-  // Debug logging
-  console.log('[Analytics Page] Total Scans:', totalScans);
-  console.log('[Analytics Page] Total Leads:', totalLeads);
-  console.log('[Analytics Page] Analytics records:', analytics?.length);
-  console.log('[Analytics Page] Scan sessions:', allScanSessions?.length);
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Analytics Page] Total Scans:', totalScans, 'Total Leads:', totalLeads);
+  }
   
   // Calculate conversion rates - QR scan conversion and overall conversion
   const qrScanConversionRate = calculateConversionRate(totalScans, totalLeads);
@@ -182,21 +181,21 @@ export default async function AnalyticsPage() {
     (allListings || []).map(async (listing) => {
       const { data: listingAnalytics } = await supabase
         .from('analytics')
-        .select('total_scans, total_leads, date')
+        .select('total_scans, total_leads, page_views, date')
         .eq('listing_id', listing.id);
 
-      console.log(`[Analytics] Listing ${listing.address}:`, {
-        raw_analytics: listingAnalytics,
-        analytics_count: listingAnalytics?.length || 0,
-        aggregated_scans: listingAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0,
-        aggregated_leads: listingAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0
-      });
+      // Debug logging removed - too verbose
 
       const listingScans =
         listingAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
       const listingLeads =
         listingAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
-      const listingConversionRate = calculateConversionRate(listingScans, listingLeads);
+      const listingPageViews =
+        listingAnalytics?.reduce((sum, a) => sum + (a.page_views || 0), 0) || 0;
+      const listingConversionRate = calculateConversionRate(listingScans, listingLeads, {
+        includePageViews: true,
+        pageViews: listingPageViews,
+      });
 
       return {
         listing_id: listing.id,
@@ -204,16 +203,17 @@ export default async function AnalyticsPage() {
         city: listing.city,
         state: listing.state,
         total_scans: listingScans,
+        total_page_views: listingPageViews,
         total_leads: listingLeads,
         conversion_rate: listingConversionRate,
       };
     })
   );
 
-  // Sort by: 1) Has activity, 2) Conversion rate, 3) Total scans
+  // Sort by: 1) Has activity, 2) Conversion rate, 3) Total traffic (scans + page views)
   topPerformers.sort((a, b) => {
-    const aActivity = a.total_scans + a.total_leads;
-    const bActivity = b.total_scans + b.total_leads;
+    const aActivity = a.total_scans + a.total_page_views + a.total_leads;
+    const bActivity = b.total_scans + b.total_page_views + b.total_leads;
     
     // First, prioritize properties with activity
     if (aActivity === 0 && bActivity > 0) return 1;
@@ -225,26 +225,13 @@ export default async function AnalyticsPage() {
       return b.conversion_rate - a.conversion_rate;
     }
     
-    // Finally, sort by total scans as tiebreaker
-    return b.total_scans - a.total_scans;
+    // Finally, sort by total traffic (scans + page views) as tiebreaker
+    const aTraffic = a.total_scans + a.total_page_views;
+    const bTraffic = b.total_scans + b.total_page_views;
+    return bTraffic - aTraffic;
   });
 
-  // Debug logging
-  console.log('[Analytics Page] Top Performers (ALL):', topPerformers.map(p => ({
-    id: p.listing_id,
-    address: p.address,
-    city: p.city,
-    state: p.state,
-    scans: p.total_scans,
-    leads: p.total_leads,
-    conversion: p.conversion_rate
-  })));
-  console.log('[Analytics Page] Top 5 displayed:', topPerformers.slice(0, 5).map(p => ({
-    address: p.address,
-    scans: p.total_scans,
-    leads: p.total_leads,
-    conversion: p.conversion_rate
-  })));
+  // Debug logging removed - too verbose
 
   // Calculate comparison periods (this week vs last week)
   const now = new Date();
@@ -302,115 +289,111 @@ export default async function AnalyticsPage() {
     geographicInsights[key].leads += listingAnalytics.reduce((sum, a) => sum + (a.total_leads || 0), 0);
   });
 
-  // Debug logging
-  console.log('[Analytics Page] Geographic Insights:', geographicInsights);
+  // Debug logging removed - too verbose
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
+      <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
         <p className="mt-2 text-gray-600">
           Track your QR code scans and lead generation performance
         </p>
-        </div>
-        <RepairAnalyticsButton />
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
         <Card className="bg-linear-to-br from-blue-50 to-blue-100 border-blue-200">
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-gray-700">Conversion Rate</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-700 leading-tight">Conversion Rate</p>
             </div>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">
               {qrScanConversionRate.toFixed(1)}%
             </p>
-            <p className="text-xs text-gray-600 mt-1">
+            <p className="text-[10px] sm:text-xs text-gray-600 mt-1 leading-tight">
               {totalLeads} leads / {totalScans} QR scans
             </p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5 leading-tight">
               Overall: {overallConversionRate.toFixed(1)}% ({totalLeads} / {totalScans + totalPageViews} total)
             </p>
           </div>
         </Card>
         <Card className="bg-linear-to-br from-purple-50 to-purple-100 border-purple-200">
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-purple-500 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-gray-700">QR Scans</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-700 leading-tight">QR Scans</p>
             </div>
-            <p className="text-3xl font-bold text-gray-900">{totalScans}</p>
-            <p className="text-xs text-gray-600 mt-1">Total QR code scans</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalScans}</p>
+            <p className="text-[10px] sm:text-xs text-gray-600 mt-1 leading-tight">Total QR code scans</p>
           </div>
         </Card>
         <Card className="bg-linear-to-br from-indigo-50 to-indigo-100 border-indigo-200">
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-indigo-500 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-gray-700">Page Views</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-700 leading-tight">Page Views</p>
             </div>
-            <p className="text-3xl font-bold text-gray-900">{totalPageViews}</p>
-            <p className="text-xs text-gray-600 mt-1">Microsite visits</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalPageViews}</p>
+            <p className="text-[10px] sm:text-xs text-gray-600 mt-1 leading-tight">Microsite visits</p>
           </div>
         </Card>
         <Card className="bg-linear-to-br from-green-50 to-green-100 border-green-200">
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-green-500 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.196-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.196-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-gray-700">Total Leads</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-700 leading-tight">Total Leads</p>
             </div>
-            <p className="text-3xl font-bold text-gray-900">{totalLeads}</p>
-            <p className="text-xs text-gray-600 mt-1">Captured contacts</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalLeads}</p>
+            <p className="text-[10px] sm:text-xs text-gray-600 mt-1 leading-tight">Captured contacts</p>
           </div>
         </Card>
         <Card className="bg-linear-to-br from-amber-50 to-amber-100 border-amber-200">
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-amber-500 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-gray-700">Unique Visitors</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-700 leading-tight">Unique Visitors</p>
             </div>
-            <p className="text-3xl font-bold text-gray-900">{totalUniqueVisitors}</p>
-            <p className="text-xs text-gray-600 mt-1">Distinct visitors</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalUniqueVisitors}</p>
+            <p className="text-[10px] sm:text-xs text-gray-600 mt-1 leading-tight">Distinct visitors</p>
           </div>
         </Card>
         <Card className="bg-linear-to-br from-gray-50 to-gray-100 border-gray-200">
-          <div className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-gray-500 flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="p-3 sm:p-4">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gray-500 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-gray-700">Active Listings</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-700 leading-tight">Active Listings</p>
             </div>
-            <p className="text-3xl font-bold text-gray-900">
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">
               {listingIds.length}
             </p>
-            <p className="text-xs text-gray-600 mt-1">Properties tracked</p>
+            <p className="text-[10px] sm:text-xs text-gray-600 mt-1 leading-tight">Properties tracked</p>
           </div>
         </Card>
       </div>
@@ -467,12 +450,12 @@ export default async function AnalyticsPage() {
         </div>
 
         {/* Quick Stats Sidebar */}
-        <div className="space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 sm:gap-4 lg:space-y-0">
           <Card className="bg-linear-to-br from-blue-50 to-blue-100 border-blue-200">
-            <div className="p-4">
-              <p className="text-sm font-medium text-gray-700 mb-1">This Week</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekData.scans}</p>
-              <p className="text-xs text-gray-600">QR scans</p>
+            <div className="p-3 sm:p-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">This Week</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{thisWeekData.scans}</p>
+              <p className="text-[10px] sm:text-xs text-gray-600">QR scans</p>
               {lastWeekData.scans > 0 && (
                 <div className="mt-2 flex items-center gap-1">
                   {thisWeekData.scans >= lastWeekData.scans ? (
@@ -493,10 +476,10 @@ export default async function AnalyticsPage() {
           </Card>
 
           <Card className="bg-linear-to-br from-green-50 to-green-100 border-green-200">
-            <div className="p-4">
-              <p className="text-sm font-medium text-gray-700 mb-1">This Week</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekData.leads}</p>
-              <p className="text-xs text-gray-600">New leads</p>
+            <div className="p-3 sm:p-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">This Week</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{thisWeekData.leads}</p>
+              <p className="text-[10px] sm:text-xs text-gray-600">New leads</p>
               {lastWeekData.leads > 0 && (
                 <div className="mt-2 flex items-center gap-1">
                   {thisWeekData.leads >= lastWeekData.leads ? (
@@ -517,12 +500,12 @@ export default async function AnalyticsPage() {
           </Card>
 
           <Card className="bg-linear-to-br from-purple-50 to-purple-100 border-purple-200">
-            <div className="p-4">
-              <p className="text-sm font-medium text-gray-700 mb-1">Avg. Daily</p>
-              <p className="text-3xl font-bold text-gray-900 mb-1">
+            <div className="p-3 sm:p-4">
+              <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1">Avg. Daily</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
                 {chartDataArray.length > 0 ? Math.round(totalScans / Math.min(chartDataArray.length, 30)) : 0}
               </p>
-              <p className="text-xs text-gray-600">Scans per day</p>
+              <p className="text-[10px] sm:text-xs text-gray-600">Scans per day</p>
             </div>
           </Card>
         </div>
@@ -597,12 +580,12 @@ export default async function AnalyticsPage() {
 
       {/* Week-over-Week Comparison */}
       <Card className="mb-6">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-gray-900">
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
               Week-over-Week Performance
             </h2>
-            <div className="flex items-center gap-6 text-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-xs sm:text-sm">
               <div>
                 <span className="text-gray-600">This Week: </span>
                 <span className="font-semibold text-gray-900">{thisWeekData.scans} scans</span>

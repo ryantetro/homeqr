@@ -7,6 +7,7 @@ interface TopPerformer {
   city: string | null;
   state: string | null;
   total_scans: number;
+  total_page_views: number;
   total_leads: number;
   conversion_rate: number;
 }
@@ -72,10 +73,15 @@ export default function TopPerformingProperties({ performers }: TopPerformingPro
                   )}
                   
                   {/* Stats */}
-                  <div className="flex items-center gap-3 mt-2">
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
                     <span className="text-xs text-gray-600">
                       👁️ {listing.total_scans} scans
                     </span>
+                    {listing.total_page_views > 0 && (
+                      <span className="text-xs text-gray-600">
+                        🌐 {listing.total_page_views} views
+                      </span>
+                    )}
                     <span className="text-xs text-gray-600">
                       🎯 {listing.total_leads} leads
                     </span>

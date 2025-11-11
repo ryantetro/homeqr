@@ -63,17 +63,17 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       {/* Period Summary Cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         {periods.map((period) => {
           const isPeak = period.name === topPeriod.name;
           return (
             <div
               key={period.name}
-              className={`relative p-3 rounded-lg border transition-all ${
+              className={`relative p-3 sm:p-4 rounded-lg border transition-all ${
                 isPeak
-                  ? 'bg-linear-to-br from-green-50 to-green-100 border-green-300 shadow-md'
+                  ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-300 shadow-md'
                   : 'bg-gray-50 border-gray-200 hover:shadow-sm'
               }`}
               style={{
@@ -82,19 +82,19 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
               }}
             >
               {isPeak && (
-                <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
+                <div className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-green-500 text-white text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded-full shadow-sm">
                   Peak
                 </div>
               )}
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xl">{period.icon}</span>
-                <div>
-                  <p className="text-xs font-semibold text-gray-900">{period.name}</p>
-                  <p className="text-[10px] text-gray-500">{period.range}</p>
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                <span className="text-lg sm:text-xl shrink-0">{period.icon}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-semibold text-gray-900 leading-tight">{period.name}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-500 leading-tight">{period.range}</p>
                 </div>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{period.total}</p>
-              <p className="text-xs text-gray-600 mt-0.5">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900">{period.total}</p>
+              <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 leading-tight">
                 {period.total === 1 ? 'visit' : 'visits'}
               </p>
             </div>
@@ -103,28 +103,28 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
       </div>
 
       {/* 24-Hour Activity Bar Chart */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="space-y-2 sm:space-y-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
           <p className="text-sm font-semibold text-gray-700">Hourly Breakdown</p>
-          <div className="flex items-center gap-3 text-xs">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-blue-500"></div>
+          <div className="flex items-center gap-2 sm:gap-3 text-xs">
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm bg-blue-500 shrink-0"></div>
               <span className="text-gray-600">Low</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-amber-500"></div>
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm bg-amber-500 shrink-0"></div>
               <span className="text-gray-600">Medium</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-sm bg-green-500"></div>
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm bg-green-500 shrink-0"></div>
               <span className="text-gray-600">High</span>
             </div>
           </div>
         </div>
 
         {/* Line/Area Chart */}
-        <div className="relative bg-linear-to-br from-gray-50 to-white rounded-xl p-5 border border-gray-200 shadow-sm">
-          <ResponsiveContainer width="100%" height={280}>
+        <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-xl p-3 sm:p-4 md:p-5 border border-gray-200 shadow-sm">
+          <ResponsiveContainer width="100%" height={200}>
             <AreaChart
               data={hours.map(hour => ({
                 hour,
@@ -132,7 +132,7 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
                 value: data[hour] || 0,
                 isPeak: hour === peakHour && data[hour] > 0,
               }))}
-              margin={{ top: 10, right: 10, left: -10, bottom: 5 }}
+              margin={{ top: 10, right: 5, left: -5, bottom: 5 }}
             >
               <defs>
                 <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
@@ -145,7 +145,7 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
               <XAxis
                 dataKey="hour"
                 stroke="#6b7280"
-                style={{ fontSize: '11px' }}
+                style={{ fontSize: '10px' }}
                 tick={{ fill: '#6b7280' }}
                 tickLine={false}
                 axisLine={{ stroke: '#e5e7eb' }}
@@ -158,12 +158,12 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
               />
               <YAxis
                 stroke="#6b7280"
-                style={{ fontSize: '11px' }}
+                style={{ fontSize: '10px' }}
                 tick={{ fill: '#6b7280' }}
                 tickLine={false}
                 axisLine={false}
                 allowDecimals={false}
-                width={35}
+                width={30}
               />
               <Tooltip
                 content={({ active, payload }) => {
@@ -196,11 +196,12 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
                 stroke="#3b82f6"
                 strokeWidth={3}
                 fill="url(#activityGradient)"
-                dot={(props: any) => {
+                dot={(props) => {
                   const { cx, cy, payload } = props;
                   if (payload.isPeak) {
                     return (
                       <circle
+                        key={`dot-peak-${cx}-${cy}`}
                         cx={cx}
                         cy={cy}
                         r={6}
@@ -214,6 +215,7 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
                   if (payload.value > 0) {
                     return (
                       <circle
+                        key={`dot-${cx}-${cy}`}
                         cx={cx}
                         cy={cy}
                         r={4}
@@ -223,7 +225,7 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
                       />
                     );
                   }
-                  return null;
+                  return <g key={`dot-empty-${cx}-${cy}`} />;
                 }}
                 activeDot={{
                   r: 6,
@@ -238,25 +240,25 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
       </div>
 
       {/* Activity Insights */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-4 bg-linear-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xl">📊</span>
-            <p className="text-xs font-semibold text-gray-700">Total Activity</p>
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        <div className="p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+            <span className="text-lg sm:text-xl shrink-0">📊</span>
+            <p className="text-xs font-semibold text-gray-700 leading-tight">Total Activity</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{totalActivity}</p>
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalActivity}</p>
+          <p className="text-[10px] sm:text-xs text-gray-600 mt-1 leading-tight">
             Avg {(totalActivity / 24).toFixed(1)} per hour
           </p>
         </div>
 
-        <div className="p-4 bg-linear-to-br from-green-50 to-green-100 border border-green-200 rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xl">🔥</span>
-            <p className="text-xs font-semibold text-gray-700">Peak Hour</p>
+        <div className="p-3 sm:p-4 bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+            <span className="text-lg sm:text-xl shrink-0">🔥</span>
+            <p className="text-xs font-semibold text-gray-700 leading-tight">Peak Hour</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{getTimeLabel(peakHour)}</p>
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{getTimeLabel(peakHour)}</p>
+          <p className="text-[10px] sm:text-xs text-gray-600 mt-1 leading-tight">
             {data[peakHour]} {data[peakHour] === 1 ? 'visit' : 'visits'}
           </p>
         </div>

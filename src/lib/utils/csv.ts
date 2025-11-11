@@ -1,6 +1,6 @@
 // CSV export utility functions
 
-export function convertToCSV(data: any[], headers: string[]): string {
+export function convertToCSV(data: Record<string, unknown>[], headers: string[]): string {
   const csvRows: string[] = [];
 
   // Add headers
@@ -32,6 +32,7 @@ export function downloadCSV(csvContent: string, filename: string): void {
   link.click();
   document.body.removeChild(link);
 }
+
 
 
 

@@ -39,6 +39,7 @@ export default async function SlugListingPage({
     .select(
       `
       *,
+      url,
       users:user_id (
         full_name,
         email,
@@ -64,6 +65,20 @@ export default async function SlugListingPage({
       status: listing.status,
     });
   }
+
+  // Debug: Log URL field
+  console.log('[Slug Microsite] Listing URL field:', { 
+    id: listing.id, 
+    slug,
+    address: listing.address,
+    url: listing.url, 
+    urlType: typeof listing.url,
+    hasUrl: !!listing.url,
+    urlLength: listing.url?.length || 0
+  });
+  
+  // Additional validation: ensure URL is a valid string
+  const hasValidUrl = listing.url && typeof listing.url === 'string' && listing.url.trim().length > 0;
 
   // Images (keep your safety filters)
   let allImages: string[] = [];
@@ -271,7 +286,7 @@ export default async function SlugListingPage({
                     <div className="ml-6 flex flex-col gap-2">
                       <a
                         href="#lead"
-                        className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-700"
+                        className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-700 cursor-pointer"
                       >
                         Request info
                       </a>
@@ -280,9 +295,22 @@ export default async function SlugListingPage({
                           href={agent.calendly_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50"
+                          className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 cursor-pointer"
                         >
                           Book a tour
+                        </a>
+                      )}
+                      {hasValidUrl && (
+                        <a
+                          href={listing.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-semibold text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 cursor-pointer"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          View Original Listing
                         </a>
                       )}
                     </div>
@@ -487,6 +515,28 @@ export default async function SlugListingPage({
           {/* RIGHT – sticky */}
           <aside className="space-y-6 lg:sticky lg:top-6">
             {agent && <AgentCard agent={agent} />}
+
+            {/* View Original Listing Button */}
+            {hasValidUrl && (
+              <Card className="border-0 shadow-xl">
+                <div className="p-6">
+                  <a
+                    href={listing.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-2.5 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    View Original Listing
+                  </a>
+                  <p className="text-xs text-gray-500 text-center mt-3 leading-relaxed">
+                    See full details, photos, and more on the original listing site
+                  </p>
+                </div>
+              </Card>
+            )}
 
             {/* Lead Form */}
             <Card id="lead" className="border-0 shadow-xl">

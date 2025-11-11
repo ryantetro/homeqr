@@ -122,3 +122,4 @@ When deploying to production:
 4. Package the extension for Chrome Web Store submission
 
 
+

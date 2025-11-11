@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe/server';
-
-const PRICES = {
-  starter: process.env.STRIPE_STARTER_PRICE_ID || '',
-  pro: process.env.STRIPE_PRO_PRICE_ID || '',
-  team: process.env.STRIPE_TEAM_PRICE_ID || '',
-};
+import { getPriceId, type PlanType, type BillingCycle } from '@/lib/stripe/prices';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,21 +14,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { plan } = body;
+    // Check if Stripe is configured
+    if (!stripe || !process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json(
+        { 
+          error: 'Payment integration is not yet configured. Please contact support to enable your account.',
+          configured: false
+        },
+        { status: 503 }
+      );
+    }
 
-    if (!plan || !['starter', 'pro', 'team'].includes(plan)) {
+    const body = await request.json();
+    const { plan, billing = 'monthly' }: { plan: PlanType; billing?: BillingCycle } = body;
+
+    if (!plan || !['starter', 'pro'].includes(plan)) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
 
-    const priceId = PRICES[plan as keyof typeof PRICES];
-    if (!priceId) {
-      return NextResponse.json({ error: 'Price ID not configured' }, { status: 500 });
+    if (!['monthly', 'annual'].includes(billing)) {
+      return NextResponse.json({ error: 'Invalid billing cycle' }, { status: 400 });
     }
 
+    const priceId = getPriceId(plan, billing);
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
-    // Create checkout session
+    // Create checkout session with 14-day free trial
     const session = await stripe.checkout.sessions.create({
       customer_email: user.email,
       mode: 'subscription',
@@ -44,23 +50,35 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${siteUrl}/dashboard/settings?success=true`,
-      cancel_url: `${siteUrl}/dashboard/settings?canceled=true`,
+      subscription_data: {
+        trial_period_days: 14,
+        metadata: {
+          userId: user.id,
+          plan: plan,
+          billing: billing,
+        },
+      },
+      success_url: `${siteUrl}/dashboard?trial=activated`,
+      cancel_url: `${siteUrl}/dashboard?trial=canceled`,
       metadata: {
         userId: user.id,
         plan: plan,
+        billing: billing,
       },
+      allow_promotion_codes: true,
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Stripe checkout error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to create checkout session';
     return NextResponse.json(
-      { error: error.message || 'Failed to create checkout session' },
+      { error: message },
       { status: 500 }
     );
   }
 }
+
 
 
 

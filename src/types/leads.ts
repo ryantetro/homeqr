@@ -6,3 +6,4 @@ export type LeadUpdate = Database['public']['Tables']['leads']['Update'];
 
 
 
+

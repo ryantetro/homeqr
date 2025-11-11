@@ -25,7 +25,12 @@ export default async function ListingDetailPage({
 
   const { data: listing } = await supabase
     .from('listings')
-    .select('*, qrcodes(id, qr_url, scan_count), leads(*)')
+    .select(`
+      *,
+      url,
+      qrcodes(id, qr_url, scan_count),
+      leads(*)
+    `)
     .eq('id', id)
     .eq('user_id', user.id)
     .single();
@@ -33,6 +38,14 @@ export default async function ListingDetailPage({
   if (!listing) {
     notFound();
   }
+
+  // Debug: Log URL field
+  console.log('[Dashboard Listing] URL field:', { 
+    id: listing.id, 
+    url: listing.url, 
+    urlType: typeof listing.url,
+    hasUrl: !!listing.url 
+  });
 
   const leads = listing.leads || [];
   const qrCode = listing.qrcodes?.[0] || null;
@@ -116,6 +129,19 @@ export default async function ListingDetailPage({
                 Active
               </span>
             </div>
+            {listing.url && (
+              <a
+                href={listing.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors border border-gray-300"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                View Original Listing
+              </a>
+            )}
             <Link
               href={listing.slug ? `/${listing.slug}` : `/listing/${listing.id}`}
               target="_blank"
@@ -181,38 +207,279 @@ export default async function ListingDetailPage({
             <div className="px-8 py-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">Property Details</h2>
             </div>
-            <div className="p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {listing.mls_id && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">MLS ID</p>
-                    <p className="text-base font-medium text-gray-900">{listing.mls_id}</p>
-                  </div>
-                )}
-                {listing.year_built && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Year Built</p>
-                    <p className="text-base font-medium text-gray-900">{listing.year_built}</p>
-                  </div>
-                )}
-                {listing.lot_size && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Lot Size</p>
-                    <p className="text-base font-medium text-gray-900">{listing.lot_size}</p>
-                  </div>
-                )}
-                {listing.home_type && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Home Type</p>
-                    <p className="text-base font-medium text-gray-900">{listing.home_type}</p>
-                  </div>
-                )}
+            <div className="p-8 space-y-8">
+              {/* Overview Section */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Overview</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {listing.mls_id && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs font-medium text-gray-500 mb-1">MLS ID</p>
+                      <p className="text-sm font-semibold text-gray-900">{listing.mls_id}</p>
+                    </div>
+                  )}
+                  {listing.year_built && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Year Built</p>
+                      <p className="text-sm font-semibold text-gray-900">{listing.year_built}</p>
+                    </div>
+                  )}
+                  {listing.property_type && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Property Type</p>
+                      <p className="text-sm font-semibold text-gray-900">{listing.property_type}</p>
+                    </div>
+                  )}
+                  {listing.property_subtype && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Subtype</p>
+                      <p className="text-sm font-semibold text-gray-900">{listing.property_subtype}</p>
+                    </div>
+                  )}
+                  {listing.lot_size && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Lot Size</p>
+                      <p className="text-sm font-semibold text-gray-900">{listing.lot_size}</p>
+                    </div>
+                  )}
+                  {listing.stories && (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Stories</p>
+                      <p className="text-sm font-semibold text-gray-900">{listing.stories}</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* Structure & Systems */}
+              {(listing.parking_spaces || listing.garage_spaces || listing.heating || listing.cooling || listing.flooring || listing.fireplace_count) && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Structure & Systems</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {listing.parking_spaces && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Parking Spaces</p>
+                        <p className="text-sm font-semibold text-gray-900">{listing.parking_spaces}</p>
+                      </div>
+                    )}
+                    {listing.garage_spaces && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Garage Spaces</p>
+                        <p className="text-sm font-semibold text-gray-900">{listing.garage_spaces}</p>
+                      </div>
+                    )}
+                    {listing.heating && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Heating</p>
+                        <p className="text-sm font-semibold text-gray-900">{listing.heating}</p>
+                      </div>
+                    )}
+                    {listing.cooling && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Cooling</p>
+                        <p className="text-sm font-semibold text-gray-900">{listing.cooling}</p>
+                      </div>
+                    )}
+                    {listing.flooring && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Flooring</p>
+                        <p className="text-sm font-semibold text-gray-900">{listing.flooring}</p>
+                      </div>
+                    )}
+                    {listing.fireplace_count && listing.fireplace_count > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Fireplaces</p>
+                        <p className="text-sm font-semibold text-gray-900">{listing.fireplace_count}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Features */}
+              {(() => {
+                // Helper to normalize features - filter out property details that shouldn't be features
+                const normalizeFeatures = (data: unknown): string[] => {
+                  if (!data) return [];
+                  
+                  let parsed: unknown = data;
+                  if (typeof data === 'string') {
+                    try {
+                      parsed = JSON.parse(data);
+                    } catch {
+                      // If not JSON, try splitting by delimiters
+                      return data.split(/[,;|]/)
+                        .map((f: string) => f.trim())
+                        .filter((f: string) => f.length > 0 && f.length < 100);
+                    }
+                  }
+                  
+                  if (!Array.isArray(parsed)) {
+                    // If it's an object, it's probably the entire property details - skip it
+                    if (typeof parsed === 'object' && parsed !== null) {
+                      return [];
+                    }
+                    return [];
+                  }
+                  
+                  // Filter out property details that belong in other fields
+                  const excludePatterns = [
+                    /^Bedrooms?:?\s*\d+/i,
+                    /^Bathrooms?:?\s*\d+/i,
+                    /^Full bathrooms?:?\s*\d+/i,
+                    /^\d+\/\d+\s*bathrooms?:?\s*\d+/i,
+                    /^Heating/i,
+                    /^Cooling/i,
+                    /^Flooring/i,
+                    /^Number of fireplaces?:?\s*\d+/i,
+                    /^Fireplace features?:?/i,
+                    /^Total structure area/i,
+                    /^Total interior livable area/i,
+                    /^Parking/i,
+                    /^Garage spaces?:?\s*\d+/i,
+                    /^Total spaces?:?\s*\d+/i,
+                    /^Lot Size/i,
+                    /^Size:/i,
+                    /^Year built/i,
+                    /^New construction/i,
+                    /^Property type/i,
+                    /^Home type/i,
+                    /^Price per square foot/i,
+                    /^Tax assessed value/i,
+                    /^Annual tax amount/i,
+                    /^Date on market/i,
+                    /^Cumulative days on market/i,
+                    /^Listing terms/i,
+                    /^Parcel number/i,
+                    /^Horses can be raised/i,
+                    /^Sewer:/i,
+                    /^Water:/i,
+                    /^Utilities for property/i,
+                    /^Security:/i,
+                    /^Subdivision:/i,
+                    /^Has HOA/i,
+                    /^Amenities included/i,
+                    /^Region:/i,
+                    /^Electric utility/i,
+                    /^Road surface type/i,
+                  ];
+                  
+                  return parsed
+                    .map((item: unknown) => {
+                      if (typeof item === 'string') return item.trim();
+                      if (typeof item === 'object' && item !== null) {
+                        const obj = item as { name?: string; value?: string; label?: string };
+                        return obj.name || obj.value || obj.label || String(item).trim();
+                      }
+                      return String(item).trim();
+                    })
+                    .filter((item: string) => {
+                      // Filter out empty, very long strings, and property details
+                      if (!item || item.length === 0 || item.length > 100) return false;
+                      // Filter out property details patterns
+                      return !excludePatterns.some(pattern => pattern.test(item));
+                    })
+                    .slice(0, 50); // Limit to 50 features max
+                };
+                
+                const features = normalizeFeatures(listing.features);
+                const interiorFeatures = normalizeFeatures(listing.interior_features);
+                const exteriorFeatures = normalizeFeatures(listing.exterior_features);
+
+                if (features.length > 0 || interiorFeatures.length > 0 || exteriorFeatures.length > 0) {
+                  return (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Features</h3>
+                      <div className="space-y-6">
+                        {features.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-gray-600 mb-3">General Features</p>
+                            <div className="flex flex-wrap gap-2">
+                              {features.map((feature, idx) => (
+                                <span key={idx} className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                  {feature}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {interiorFeatures.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-gray-600 mb-3">Interior Features</p>
+                            <div className="flex flex-wrap gap-2">
+                              {interiorFeatures.map((feature, idx) => (
+                                <span key={idx} className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                                  {feature}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {exteriorFeatures.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium text-gray-600 mb-3">Exterior Features</p>
+                            <div className="flex flex-wrap gap-2">
+                              {exteriorFeatures.map((feature, idx) => (
+                                <span key={idx} className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                                  {feature}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Financial Information */}
+              {(listing.hoa_fee || listing.tax_assessed_value || listing.annual_tax_amount || listing.price_per_sqft || listing.zestimate) && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Financial Information</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {listing.hoa_fee && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">HOA Fee</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(listing.hoa_fee)}/mo</p>
+                      </div>
+                    )}
+                    {listing.tax_assessed_value && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Tax Assessed Value</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(listing.tax_assessed_value)}</p>
+                      </div>
+                    )}
+                    {listing.annual_tax_amount && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Annual Tax</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(listing.annual_tax_amount)}</p>
+                      </div>
+                    )}
+                    {listing.price_per_sqft && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Price per Sq Ft</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(listing.price_per_sqft)}</p>
+                      </div>
+                    )}
+                    {listing.zestimate && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs font-medium text-gray-500 mb-1">Zestimate®</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatCurrency(listing.zestimate)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
               {listing.description && (
-                <div className="mt-8 pt-8 border-t border-gray-200">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Description</p>
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{listing.description}</p>
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Description</h3>
+                  <div className="bg-gray-50 rounded-lg p-6">
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{listing.description}</p>
+                  </div>
                 </div>
               )}
             </div>

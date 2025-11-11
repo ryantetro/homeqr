@@ -2,9 +2,14 @@
 
 import { useState } from 'react';
 
+interface RepairStats {
+  recordsCreated: number;
+  recordsUpdated: number;
+}
+
 export default function RepairAnalyticsButton() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string; stats?: any } | null>(null);
+  const [result, setResult] = useState<{ success: boolean; message: string; stats?: RepairStats } | null>(null);
 
   const handleRepair = async () => {
     if (!confirm('This will recalculate all analytics data from scan sessions. Continue?')) {
@@ -28,10 +33,11 @@ export default function RepairAnalyticsButton() {
           window.location.reload();
         }, 2000);
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to repair analytics';
       setResult({
         success: false,
-        message: 'Failed to repair analytics',
+        message,
       });
     } finally {
       setLoading(false);

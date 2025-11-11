@@ -178,7 +178,14 @@ export async function GET(
       }
     } else {
       // No record exists, create one (but handle race condition if page view created it)
-      const insertData: any = {
+      const insertData: {
+        listing_id: string;
+        date: string;
+        total_scans: number;
+        unique_visitors: number;
+        total_leads: number;
+        page_views?: number;
+      } = {
         listing_id: listingId,
         date: today,
         total_scans: 1,

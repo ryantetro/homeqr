@@ -38,8 +38,9 @@ export function useListings(options: UseListingsOptions = {}) {
 
       setListings(data.data || []);
       setPagination(data.pagination || pagination);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch listings';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -57,6 +58,7 @@ export function useListings(options: UseListingsOptions = {}) {
     refetch: fetchListings,
   };
 }
+
 
 
 

@@ -97,10 +97,11 @@ export async function POST(request: NextRequest) {
       message: isNewQR ? 'QR code generated successfully!' : 'QR code regenerated successfully!',
       isExisting: !isNewQR,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('QR generation error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to generate QR code';
     return NextResponse.json(
-      { error: error.message || 'Failed to generate QR code' },
+      { error: message },
       { status: 500 }
     );
   }

@@ -72,10 +72,11 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil((count || 0) / limit),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Listings fetch error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to fetch listings';
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch listings' },
+      { error: message },
       { status: 500 }
     );
   }
@@ -106,6 +107,29 @@ export async function POST(request: NextRequest) {
       bedrooms,
       bathrooms,
       square_feet,
+      url, // Original listing URL
+      // Additional property details
+      property_type,
+      property_subtype,
+      year_built,
+      lot_size,
+      features,
+      interior_features,
+      exterior_features,
+      parking_spaces,
+      garage_spaces,
+      stories,
+      heating,
+      cooling,
+      flooring,
+      fireplace_count,
+      hoa_fee,
+      tax_assessed_value,
+      annual_tax_amount,
+      price_per_sqft,
+      zestimate,
+      days_on_market,
+      listing_date,
     } = body;
 
     if (!address) {
@@ -136,14 +160,35 @@ export async function POST(request: NextRequest) {
         zip: zip || null,
         price: price ? parseFloat(price) : null,
         description: description || null,
-        image_url: image_url || null,
-        // Store multiple images as JSON in description or use image_url field
-        // For now, we'll store the JSON array in image_url if image_urls is provided
-        ...(image_urls ? { image_url: image_urls } : { image_url: image_url || null }),
+        // Store multiple images as JSON array if image_urls is provided, otherwise use single image_url
+        image_url: image_urls ? image_urls : (image_url || null),
         mls_id: mls_id || null,
         bedrooms: bedrooms ? parseInt(bedrooms) : null,
         bathrooms: bathrooms ? parseFloat(bathrooms) : null,
         square_feet: square_feet ? parseInt(square_feet) : null,
+        url: url || null,
+        // Additional property details
+        property_type: property_type || null,
+        property_subtype: property_subtype || null,
+        year_built: year_built ? parseInt(String(year_built)) : null,
+        lot_size: lot_size || null,
+        features: features || null,
+        interior_features: interior_features || null,
+        exterior_features: exterior_features || null,
+        parking_spaces: parking_spaces ? parseInt(String(parking_spaces)) : null,
+        garage_spaces: garage_spaces ? parseInt(String(garage_spaces)) : null,
+        stories: stories ? parseInt(String(stories)) : null,
+        heating: heating || null,
+        cooling: cooling || null,
+        flooring: flooring || null,
+        fireplace_count: fireplace_count ? parseInt(String(fireplace_count)) : null,
+        hoa_fee: hoa_fee ? parseFloat(String(hoa_fee)) : null,
+        tax_assessed_value: tax_assessed_value ? parseFloat(String(tax_assessed_value)) : null,
+        annual_tax_amount: annual_tax_amount ? parseFloat(String(annual_tax_amount)) : null,
+        price_per_sqft: price_per_sqft ? parseFloat(String(price_per_sqft)) : null,
+        zestimate: zestimate ? parseFloat(String(zestimate)) : null,
+        days_on_market: days_on_market ? parseInt(String(days_on_market)) : null,
+        listing_date: listing_date || null,
         status: 'active',
         slug,
       })
@@ -183,10 +228,11 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ data: listing });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Listing creation error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to create listing';
     return NextResponse.json(
-      { error: error.message || 'Failed to create listing' },
+      { error: message },
       { status: 500 }
     );
   }
@@ -223,7 +269,19 @@ export async function PUT(request: NextRequest) {
     }
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: {
+      address?: string;
+      city?: string | null;
+      state?: string | null;
+      zip?: string | null;
+      price?: number | null;
+      description?: string | null;
+      image_url?: string | null;
+      mls_id?: string | null;
+      bedrooms?: number | null;
+      bathrooms?: number | null;
+      square_feet?: number | null;
+    } = {};
     if (updates.address) updateData.address = updates.address;
     if (updates.city !== undefined) updateData.city = updates.city;
     if (updates.state !== undefined) updateData.state = updates.state;
@@ -248,10 +306,11 @@ export async function PUT(request: NextRequest) {
     }
 
     return NextResponse.json({ data: listing });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Listing update error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to update listing';
     return NextResponse.json(
-      { error: error.message || 'Failed to update listing' },
+      { error: message },
       { status: 500 }
     );
   }
@@ -298,10 +357,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({ message: 'Listing deleted successfully' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Listing deletion error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to delete listing';
     return NextResponse.json(
-      { error: error.message || 'Failed to delete listing' },
+      { error: message },
       { status: 500 }
     );
   }

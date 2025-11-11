@@ -63,9 +63,9 @@ export default function ComparisonChart({
   const periodLabel = periodType === 'week' ? 'Week' : 'Month';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Metric Cards Grid */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {metrics.map((metric) => {
           const change = calculateChange(metric.current, metric.previous);
           const isPositive = change >= 0;
@@ -88,27 +88,27 @@ export default function ComparisonChart({
                 }}
               />
 
-              <div className="relative p-5">
+              <div className="relative p-4 sm:p-5">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl">{metric.icon}</span>
-                    <p className="text-sm font-semibold text-gray-700">{metric.name}</p>
+                    <span className="text-xl sm:text-2xl shrink-0">{metric.icon}</span>
+                    <p className="text-xs sm:text-sm font-semibold text-gray-700 leading-tight">{metric.name}</p>
                   </div>
                   {isSignificant && (
                     <div
-                      className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
+                      className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold shrink-0 ${
                         isPositive
                           ? 'bg-green-100 text-green-700'
                           : 'bg-red-100 text-red-700'
                       }`}
                     >
                       {isPositive ? (
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                         </svg>
                       ) : (
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                         </svg>
                       )}
@@ -119,16 +119,16 @@ export default function ComparisonChart({
 
                 {/* Current Value */}
                 <div className="mb-3">
-                  <p className="text-4xl font-bold text-gray-900">{metric.current}</p>
-                  <p className="text-xs text-gray-600 mt-1">This {periodLabel.toLowerCase()}</p>
+                  <p className="text-3xl sm:text-4xl font-bold text-gray-900">{metric.current}</p>
+                  <p className="text-[10px] sm:text-xs text-gray-600 mt-1 leading-tight">This {periodLabel.toLowerCase()}</p>
                 </div>
 
                 {/* Comparison Bar */}
                 <div className="space-y-1.5">
                   {/* This Week */}
                   <div className="flex items-center gap-2">
-                    <div className="w-16 text-xs text-gray-600">This</div>
-                    <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div className="w-12 sm:w-16 text-[10px] sm:text-xs text-gray-600 shrink-0">This</div>
+                    <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden min-w-0">
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
@@ -137,15 +137,15 @@ export default function ComparisonChart({
                         }}
                       />
                     </div>
-                    <div className="w-8 text-xs font-semibold text-gray-900 text-right">
+                    <div className="w-6 sm:w-8 text-[10px] sm:text-xs font-semibold text-gray-900 text-right shrink-0">
                       {metric.current}
                     </div>
                   </div>
 
                   {/* Last Week */}
                   <div className="flex items-center gap-2">
-                    <div className="w-16 text-xs text-gray-500">Last</div>
-                    <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                    <div className="w-12 sm:w-16 text-[10px] sm:text-xs text-gray-500 shrink-0">Last</div>
+                    <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden min-w-0">
                       <div
                         className="h-full rounded-full transition-all duration-500 opacity-60"
                         style={{
@@ -154,7 +154,7 @@ export default function ComparisonChart({
                         }}
                       />
                     </div>
-                    <div className="w-8 text-xs font-medium text-gray-600 text-right">
+                    <div className="w-6 sm:w-8 text-[10px] sm:text-xs font-medium text-gray-600 text-right shrink-0">
                       {metric.previous}
                     </div>
                   </div>
@@ -166,44 +166,45 @@ export default function ComparisonChart({
       </div>
 
       {/* Grouped Bar Chart */}
-      <div className="bg-linear-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-200 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-gray-900">Performance Comparison</h3>
-          <div className="flex items-center gap-4 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-blue-500"></div>
+      <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3 sm:mb-4">
+          <h3 className="text-sm sm:text-base font-semibold text-gray-900">Performance Comparison</h3>
+          <div className="flex items-center gap-3 sm:gap-4 text-xs">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-blue-500 shrink-0"></div>
               <span className="text-gray-600">This {periodLabel}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-gray-400"></div>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-gray-400 shrink-0"></div>
               <span className="text-gray-600">Last {periodLabel}</span>
             </div>
           </div>
         </div>
 
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height={220}>
           <BarChart
             data={chartData}
-            margin={{ top: 20, right: 20, left: 0, bottom: 5 }}
-            barGap={8}
-            barCategoryGap="25%"
+            margin={{ top: 10, right: 10, left: -5, bottom: 5 }}
+            barGap={6}
+            barCategoryGap="20%"
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
             <XAxis
               dataKey="name"
               stroke="#6b7280"
-              style={{ fontSize: '12px' }}
+              style={{ fontSize: '10px' }}
               tick={{ fill: '#6b7280' }}
               tickLine={false}
               axisLine={{ stroke: '#e5e7eb' }}
             />
             <YAxis
               stroke="#6b7280"
-              style={{ fontSize: '12px' }}
+              style={{ fontSize: '10px' }}
               tick={{ fill: '#6b7280' }}
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
+              width={30}
             />
             <Tooltip
               content={({ active, payload }) => {
@@ -259,10 +260,10 @@ export default function ComparisonChart({
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="text-center p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-xs font-medium text-gray-600 mb-1">Total Growth</p>
-          <p className={`text-2xl font-bold ${
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="text-center p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1 leading-tight">Total Growth</p>
+          <p className={`text-xl sm:text-2xl font-bold ${
             (currentPeriod.scans + currentPeriod.leads + currentPeriod.pageViews) >= 
             (previousPeriod.scans + previousPeriod.leads + previousPeriod.pageViews)
               ? 'text-green-600'
@@ -275,18 +276,18 @@ export default function ComparisonChart({
           </p>
         </div>
         
-        <div className="text-center p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-xs font-medium text-gray-600 mb-1">Lead Growth</p>
-          <p className={`text-2xl font-bold ${
+        <div className="text-center p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1 leading-tight">Lead Growth</p>
+          <p className={`text-xl sm:text-2xl font-bold ${
             currentPeriod.leads >= previousPeriod.leads ? 'text-green-600' : 'text-red-600'
           }`}>
             {calculateChange(currentPeriod.leads, previousPeriod.leads).toFixed(1)}%
           </p>
         </div>
         
-        <div className="text-center p-4 bg-purple-50 border border-purple-200 rounded-lg">
-          <p className="text-xs font-medium text-gray-600 mb-1">Engagement Growth</p>
-          <p className={`text-2xl font-bold ${
+        <div className="text-center p-3 sm:p-4 bg-purple-50 border border-purple-200 rounded-lg">
+          <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1 leading-tight">Engagement Growth</p>
+          <p className={`text-xl sm:text-2xl font-bold ${
             currentPeriod.scans >= previousPeriod.scans ? 'text-green-600' : 'text-red-600'
           }`}>
             {calculateChange(currentPeriod.scans, previousPeriod.scans).toFixed(1)}%

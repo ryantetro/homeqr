@@ -21,13 +21,15 @@ export async function GET(request: NextRequest) {
       access_token: session.access_token,
       expires_at: session.expires_at,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Token fetch error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to get token';
     return NextResponse.json(
-      { error: error.message || 'Failed to get token' },
+      { error: message },
       { status: 500 }
     );
   }
 }
+
 
 

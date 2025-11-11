@@ -6,3 +6,4 @@ export type QRCodeUpdate = Database['public']['Tables']['qrcodes']['Update'];
 
 
 
+

@@ -44,8 +44,9 @@ export default function NewListingPage() {
       }
 
       router.push(`/dashboard/listings/${data.data.id}`);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to create listing';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -211,6 +212,7 @@ export default function NewListingPage() {
     </div>
   );
 }
+
 
 
 

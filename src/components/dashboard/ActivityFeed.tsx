@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 interface Activity {
   id: string;
-  type: 'scan' | 'lead' | 'view';
+  type: 'scan' | 'visit' | 'lead' | 'view';
   listing_id: string;
   listing_address: string;
   listing_city?: string;
@@ -39,18 +39,21 @@ export default function ActivityFeed() {
 
       const listingIds = listings.map(l => l.id);
 
-      // Fetch recent scans
+      // Fetch recent scans and visits
       const { data: scans } = await supabase
         .from('scan_sessions')
         .select(`
           id,
           listing_id,
-          created_at,
+          first_scan_at,
+          last_scan_at,
+          source,
+          scan_count,
           listings(address, city, state)
         `)
         .in('listing_id', listingIds)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('first_scan_at', { ascending: false })
+        .limit(20);
 
       // Fetch recent leads
       const { data: leads } = await supabase
@@ -68,25 +71,40 @@ export default function ActivityFeed() {
 
       // Combine and sort activities
       const combined: Activity[] = [
-        ...(scans || []).map(scan => ({
-          id: scan.id,
-          type: 'scan' as const,
-          listing_id: scan.listing_id,
-          listing_address: (scan.listings as any)?.address || 'Unknown',
-          listing_city: (scan.listings as any)?.city,
-          listing_state: (scan.listings as any)?.state,
-          timestamp: scan.created_at,
-        })),
-        ...(leads || []).map(lead => ({
-          id: lead.id,
-          type: 'lead' as const,
-          listing_id: lead.listing_id,
-          listing_address: (lead.listings as any)?.address || 'Unknown',
-          listing_city: (lead.listings as any)?.city,
-          listing_state: (lead.listings as any)?.state,
-          timestamp: lead.created_at,
-          lead_name: lead.name,
-        })),
+        ...(scans || []).map(scan => {
+          // Differentiate between QR scan and microsite visit
+          const scanCount = scan.scan_count ?? 0;
+          const source = scan.source ?? null;
+          const isQRScan = source === 'qr' || scanCount > 0;
+          const isVisit = !isQRScan && scanCount === 0;
+          
+          // Use last_scan_at if available (for updated sessions), otherwise first_scan_at
+          const timestamp = scan.last_scan_at || scan.first_scan_at;
+          
+          const listing = scan.listings as { address?: string; city?: string; state?: string } | null;
+          return {
+            id: scan.id,
+            type: (isQRScan ? 'scan' : (isVisit ? 'visit' : 'view')) as 'scan' | 'visit' | 'view',
+            listing_id: scan.listing_id,
+            listing_address: listing?.address || 'Unknown',
+            listing_city: listing?.city,
+            listing_state: listing?.state,
+            timestamp: timestamp,
+          };
+        }),
+        ...(leads || []).map(lead => {
+          const listing = lead.listings as { address?: string; city?: string; state?: string } | null;
+          return {
+            id: lead.id,
+            type: 'lead' as const,
+            listing_id: lead.listing_id,
+            listing_address: listing?.address || 'Unknown',
+            listing_city: listing?.city,
+            listing_state: listing?.state,
+            timestamp: lead.created_at,
+            lead_name: lead.name,
+          };
+        }),
       ];
 
       combined.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -121,6 +139,8 @@ export default function ActivityFeed() {
     switch (type) {
       case 'scan':
         return { emoji: '📱', bgColor: 'bg-blue-100', textColor: 'text-blue-700', borderColor: 'border-blue-300' };
+      case 'visit':
+        return { emoji: '👁️', bgColor: 'bg-purple-100', textColor: 'text-purple-700', borderColor: 'border-purple-300' };
       case 'lead':
         return { emoji: '🎯', bgColor: 'bg-green-100', textColor: 'text-green-700', borderColor: 'border-green-300' };
       case 'view':
@@ -186,6 +206,10 @@ export default function ActivityFeed() {
                     ) : activity.type === 'scan' ? (
                       <p className="text-sm font-semibold text-gray-900">
                         <span className="text-blue-700">QR Code Scanned</span>
+                      </p>
+                    ) : activity.type === 'visit' ? (
+                      <p className="text-sm font-semibold text-gray-900">
+                        <span className="text-purple-700">Microsite Visit</span>
                       </p>
                     ) : (
                       <p className="text-sm font-semibold text-gray-900">

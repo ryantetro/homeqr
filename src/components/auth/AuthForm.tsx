@@ -66,8 +66,8 @@ export default function AuthForm({ mode }: AuthFormProps) {
           return;
         }
 
-        // Redirect to onboarding for new users
-        router.push('/onboarding');
+        // Redirect to dashboard for new users (immediate access)
+        router.push('/dashboard');
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -90,9 +90,10 @@ export default function AuthForm({ mode }: AuthFormProps) {
           router.refresh();
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Auth error:', err);
-      setError(err.message || 'An error occurred. Please check your credentials and try again.');
+      const message = err instanceof Error ? err.message : 'An error occurred. Please check your credentials and try again.';
+      setError(message);
     } finally {
       setLoading(false);
     }

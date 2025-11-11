@@ -20,16 +20,15 @@ export default function Home() {
               {/* Headline */}
               <AnimatedText delay={100}>
                 <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-6xl font-bold text-gray-900 leading-[1.1] tracking-tight">
-                  Turn every sign into a{' '}
-                  <span className="text-blue-600">qualified lead</span>
-                </h1>
+                  QR Codes That Turn{' '}
+                  <span className="text-blue-600">Signs Into Leads</span>
+          </h1>
               </AnimatedText>
 
               {/* Description */}
               <AnimatedText delay={300}>
                 <p className="text-base md:text-lg text-gray-600 leading-relaxed max-w-xl">
-                  Generate QR codes for your property listings and track every scan, conversion, and lead. 
-                  See which properties perform best and turn more signs into sales.
+                  Generate professional QR codes for any property listing. Every scan goes to your branded microsite with instant lead capture, analytics, and tracking—while still linking to the original listing.
                 </p>
               </AnimatedText>
 
@@ -43,15 +42,6 @@ export default function Home() {
                       className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-300 hover:scale-105 active:scale-95"
                     >
                       Get started
-                    </Button>
-                  </Link>
-                  <Link href="https://chrome.google.com/webstore">
-                    <Button 
-                      size="lg" 
-                      variant="outline" 
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-full border-2 border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 font-semibold transition-all duration-300 hover:scale-105 active:scale-95"
-                    >
-                      Install Extension →
                     </Button>
                   </Link>
                 </div>
@@ -145,6 +135,135 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Problems We Solve Section */}
+      <section className="py-24 px-6 sm:px-8 lg:px-12 xl:px-16 bg-gray-50">
+        <div className="container mx-auto max-w-6xl">
+          <AnimatedSection className="text-center mb-16 max-w-2xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 tracking-tight">
+              Stop Losing Leads to MLS Links
+            </h2>
+            <p className="text-lg text-gray-600 leading-relaxed">
+              When you send buyers to Zillow or Realtor.com, they see the listing but you get nothing. Here's what you're missing:
+            </p>
+          </AnimatedSection>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {[
+              {
+                title: 'No Analytics',
+                desc: 'Zero data on who viewed your listing or how long they stayed',
+                icon: '📊',
+                bgClass: 'bg-red-100',
+              },
+              {
+                title: 'No Lead Capture',
+                desc: 'Buyers leave without leaving contact information',
+                icon: '👋',
+                bgClass: 'bg-orange-100',
+              },
+              {
+                title: 'No Tracking',
+                desc: 'Can\'t tell which marketing channel drove the visit',
+                icon: '📱',
+                bgClass: 'bg-yellow-100',
+              },
+              {
+                title: 'No Follow-up',
+                desc: 'No way to reach interested buyers after they leave',
+                icon: '🔔',
+                bgClass: 'bg-blue-100',
+              },
+            ].map((item, index) => (
+              <AnimatedSection key={index} delay={index * 100}>
+                <Card className="border-gray-200 bg-white hover:shadow-lg transition-all duration-300 text-center h-full">
+                  <CardHeader className="pb-4">
+                    <div className={`w-14 h-14 ${item.bgClass} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                      <span className="text-2xl">{item.icon}</span>
+                    </div>
+                    <CardTitle className="text-lg font-semibold mb-2">{item.title}</CardTitle>
+                    <CardDescription className="text-sm leading-relaxed">
+                      {item.desc}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </AnimatedSection>
+            ))}
+          </div>
+
+          {/* Comparison Section - Compact */}
+          <AnimatedSection>
+            <Card className="border-gray-200 bg-white shadow-lg">
+              <CardHeader className="pb-6">
+                <div className="text-center mb-8">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    MLS Links vs. HomeQR
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    See what you're missing with traditional MLS links
+                  </p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* MLS Links */}
+                  <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <h4 className="text-lg font-bold text-gray-900">MLS Links</h4>
+                    </div>
+                    <ul className="space-y-2.5">
+                      {['Buyer sees listing', 'Zero analytics', 'No lead capture', 'No tracking', 'No follow-up'].map((text, i) => (
+                        <li key={i} className="flex items-center gap-2 text-sm text-gray-600">
+                          <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          <span className={i === 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}>{text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* HomeQR */}
+                  <div className="bg-blue-50 rounded-lg p-6 border-2 border-blue-200 relative">
+                    <div className="absolute -top-3 -right-3 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                      BETTER
+                    </div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <h4 className="text-lg font-bold text-gray-900">HomeQR Microsite</h4>
+                    </div>
+                    <ul className="space-y-2.5">
+                      {['Buyer sees listing', 'Full analytics', 'Instant lead capture', 'Track every source', 'Automatic follow-up', 'Link to original MLS'].map((text, i) => (
+                        <li key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                          <svg className="w-4 h-4 text-green-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="font-medium">{text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="bg-white rounded-lg p-6 border border-gray-200">
+                  <p className="text-center text-sm text-gray-700 leading-relaxed">
+                    <strong className="text-gray-900">HomeQR shows the listing AND captures the lead.</strong> 
+                    {' '}Buyers can still click through to the original MLS site. You get lead capture with the trust of an official listing.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+        </div>
+      </section>
+
       {/* How It Works Section */}
       <section className="py-32 px-6 sm:px-8 lg:px-12 xl:px-16 bg-white">
         <div className="container mx-auto max-w-7xl">
@@ -161,26 +280,26 @@ export default function Home() {
             {[
               {
                 step: '1',
-                title: 'Install Extension',
-                desc: 'Add the HomeQR Chrome extension to your browser in seconds',
-                icon: '🔌',
+                title: 'Sign Up & Start Trial',
+                desc: 'Create your account and activate your 14-day free trial to get started',
+                icon: '✨',
               },
               {
                 step: '2',
                 title: 'Generate QR Code',
-                desc: 'Visit any Zillow listing and click to generate your QR code instantly',
+                desc: 'Visit any listing site (Zillow, Realtor.com, or any MLS site) and click to generate your QR code instantly',
                 icon: '📱',
               },
               {
                 step: '3',
                 title: 'Print & Display',
-                desc: 'Download and print your QR code sticker for yard signs and flyers',
+                desc: 'Download and print your QR code sticker for yard signs, flyers, and social media posts',
                 icon: '🖨️',
               },
               {
                 step: '4',
                 title: 'Track & Convert',
-                desc: 'Monitor scans, capture leads, and see conversion rates in your dashboard',
+                desc: 'Monitor scans, capture leads, and see which marketing channels drive the most conversions',
                 icon: '📊',
               },
             ].map((item, index) => (
@@ -217,12 +336,12 @@ export default function Home() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
-              { icon: '🔗', title: 'Instant QR Generation', desc: 'Create QR codes directly from Zillow listings with our Chrome extension. No manual data entry required.', bgClass: 'bg-blue-100' },
-              { icon: '📱', title: 'Smart Lead Capture', desc: 'Each QR scan leads to a conversion-optimized property page with instant contact forms to capture buyer info.', bgClass: 'bg-green-100' },
-              { icon: '📊', title: 'Conversion Analytics', desc: 'Track conversion rates, device types, time-of-day patterns, and see which properties generate the most leads.', bgClass: 'bg-purple-100' },
-              { icon: '📄', title: 'Printable QR Stickers', desc: 'Download print-ready QR code stickers for yard signs, flyers, and open house materials.', bgClass: 'bg-orange-100' },
-              { icon: '🔔', title: 'Instant Notifications', desc: 'Get notified immediately when leads come in so you can respond while interest is highest.', bgClass: 'bg-red-100' },
-              { icon: '👥', title: 'Lead Management', desc: 'Organize, filter, and track leads with status management. Export to CSV for your CRM.', bgClass: 'bg-indigo-100' },
+              { icon: '🔗', title: 'Works on Any Listing Site', desc: 'Generate QR codes from Zillow, Realtor.com, or any MLS-powered site. No manual data entry required.', bgClass: 'bg-blue-100' },
+              { icon: '📱', title: 'Capture Leads MLS Links Can\'t', desc: 'Every QR scan goes to your microsite with instant contact forms. Capture buyer info that MLS links completely miss.', bgClass: 'bg-green-100' },
+              { icon: '📊', title: 'Track Every Marketing Channel', desc: 'See exactly which yard sign, flyer, TikTok post, or open house drove each lead. Finally, data you can act on.', bgClass: 'bg-purple-100' },
+              { icon: '🔗', title: 'Link to Original Listing', desc: 'Buyers can click through to the original MLS/Zillow listing if they want. You get the lead AND the trust.', bgClass: 'bg-orange-100' },
+              { icon: '🔔', title: 'Instant Lead Notifications', desc: 'Get notified immediately when leads come in so you can respond while interest is highest.', bgClass: 'bg-red-100' },
+              { icon: '👥', title: 'Unrepresented Buyer Pipeline', desc: 'Build a pipeline of unrepresented buyers who found you through your marketing. Export to CSV for your CRM.', bgClass: 'bg-indigo-100' },
             ].map((feature, index) => (
               <AnimatedSection key={index} delay={index * 100}>
                 <Card className="border-gray-200 bg-white hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group">
@@ -300,7 +419,7 @@ export default function Home() {
       {/* CTA Section */}
       <section className="relative py-20 px-6 sm:px-8 lg:px-12 xl:px-16 overflow-hidden">
         {/* Gradient Background */}
-        <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-blue-700 to-indigo-800" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800" />
         
         {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
@@ -317,7 +436,7 @@ export default function Home() {
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight leading-tight">
                 Ready to transform
                 <br />
-                <span className="bg-linear-to-r from-blue-200 via-white to-blue-200 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-blue-200 via-white to-blue-200 bg-clip-text text-transparent">
                   your listings?
                 </span>
               </h2>
@@ -338,7 +457,7 @@ export default function Home() {
                     className="group relative px-8 py-3 text-base font-semibold bg-white text-blue-600 hover:bg-blue-50 transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl hover:shadow-blue-500/50 rounded-full overflow-hidden"
                   >
                     <span className="relative z-10">Start Free Trial</span>
-                    <div className="absolute inset-0 bg-linear-to-r from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </Button>
                 </Link>
                 <Link href="/auth/login">

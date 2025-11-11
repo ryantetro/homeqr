@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import ImageUpload from '@/components/onboarding/ImageUpload';
+import PaymentPlaceholderForm from '@/components/onboarding/PaymentPlaceholderForm';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import Image from 'next/image';
@@ -12,9 +13,14 @@ import Image from 'next/image';
 export default function OnboardingPage() {
   const router = useRouter();
   const supabase = createClient();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(1); // Step 1 is now payment
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<{
+    has_paid: boolean;
+    is_beta_user: boolean;
+    has_access: boolean;
+  } | null>(null);
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
@@ -33,6 +39,45 @@ export default function OnboardingPage() {
       if (!user) {
         router.push('/auth/login');
         return;
+      }
+
+      // Check payment status
+      try {
+        const response = await fetch('/api/payment/status');
+        if (response.ok) {
+          const data = await response.json();
+          setPaymentStatus(data);
+        }
+      } catch (error) {
+        console.error('Failed to check payment status:', error);
+      }
+
+      // Check for step query parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const stepParam = urlParams.get('step');
+      if (stepParam) {
+        const stepNum = parseInt(stepParam, 10);
+        if (stepNum >= 1 && stepNum <= 5) {
+          setStep(stepNum);
+        }
+      }
+
+      // Check for payment success redirect from Stripe
+      if (urlParams.get('payment') === 'success') {
+        // Remove query parameter
+        window.history.replaceState({}, '', '/onboarding');
+        // Refresh payment status and redirect to dashboard
+        setTimeout(() => {
+          fetch('/api/payment/status')
+            .then(res => res.json())
+            .then(data => {
+              setPaymentStatus(data);
+              if (data.has_access) {
+                // Payment successful, redirect to dashboard
+                router.push('/dashboard');
+              }
+            });
+        }, 1000);
       }
 
       // Load existing profile data
@@ -55,7 +100,7 @@ export default function OnboardingPage() {
       }
     }
     checkUser();
-  }, [router, supabase]);
+  }, [router, supabase, step]);
 
   const handleImageUpload = async (type: 'avatar' | 'logo', file: File): Promise<string | null> => {
     try {
@@ -101,6 +146,7 @@ export default function OnboardingPage() {
         throw new Error('User not authenticated');
       }
 
+      // Save profile data
       const { error: updateError } = await supabase
         .from('users')
         .update({
@@ -118,7 +164,8 @@ export default function OnboardingPage() {
         throw updateError;
       }
 
-      router.push('/dashboard');
+      // After saving profile, move to payment step (step 5)
+      setStep(5);
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : 'Failed to save profile'
@@ -129,8 +176,11 @@ export default function OnboardingPage() {
   };
 
   const nextStep = () => {
-    if (step < 4) {
+    if (step < 5) {
       setStep(step + 1);
+    } else if (step === 4) {
+      // After profile setup (step 4), move to payment (step 5)
+      setStep(5);
     }
   };
 
@@ -165,7 +215,7 @@ export default function OnboardingPage() {
         {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
-            {[1, 2, 3, 4].map((s) => (
+            {[1, 2, 3, 4, 5].map((s) => (
               <div key={s} className="flex items-center flex-1">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
@@ -176,7 +226,7 @@ export default function OnboardingPage() {
                 >
                   {s}
                 </div>
-                {s < 4 && (
+                {s < 5 && (
                   <div
                     className={`flex-1 h-1 mx-2 ${
                       step > s ? 'bg-blue-600' : 'bg-gray-200'
@@ -191,6 +241,7 @@ export default function OnboardingPage() {
             <span>Branding</span>
             <span>License</span>
             <span>Calendar</span>
+            <span>Payment</span>
           </div>
         </div>
 
@@ -317,12 +368,50 @@ export default function OnboardingPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Add your Calendly link to enable "Schedule a Showing" on
+                    Add your Calendly link to enable &quot;Schedule a Showing&quot; on
                     your property pages
                   </p>
                 </div>
               </div>
             )}
+
+            {/* Step 5: Payment */}
+            {step === 5 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Complete Payment
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  To access your HomeQR dashboard, please complete your subscription payment. Beta users can skip this step.
+                </p>
+                <PaymentPlaceholderForm 
+                  onPaymentComplete={() => {
+                    // Refresh payment status and redirect to dashboard
+                    fetch('/api/payment/status')
+                      .then(res => res.json())
+                      .then(data => {
+                        setPaymentStatus(data);
+                        if (data.has_access) {
+                          // Payment successful, redirect to dashboard
+                          router.push('/dashboard');
+                        }
+                      });
+                  }}
+                />
+                {paymentStatus?.is_beta_user && (
+                  <div className="mt-4">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => router.push('/dashboard')}
+                    >
+                      Continue to Dashboard
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
 
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -339,13 +428,16 @@ export default function OnboardingPage() {
               >
                 Previous
               </Button>
-              {step < 4 ? (
+              {step === 5 ? (
+                // Payment step - button handled by PaymentPlaceholderForm or beta user button
+                <div />
+              ) : step < 4 ? (
                 <Button type="button" variant="primary" onClick={nextStep}>
                   Next
                 </Button>
               ) : (
                 <Button type="submit" variant="primary" disabled={loading}>
-                  {loading ? 'Saving...' : 'Complete Setup'}
+                  {loading ? 'Saving...' : 'Continue to Payment'}
                 </Button>
               )}
             </div>

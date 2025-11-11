@@ -50,6 +50,24 @@ html {
 /* Smooth link transitions */
 a {
   transition: color 0.2s ease-out, opacity 0.2s ease-out;
+  cursor: pointer;
+}
+
+/* All buttons should have pointer cursor */
+button {
+  cursor: pointer;
+}
+
+/* Button-like anchor tags */
+a[class*="bg-blue"],
+a[class*="bg-gray"],
+a[class*="bg-green"],
+a[class*="bg-purple"],
+a[class*="bg-white"][class*="rounded"],
+a[class*="rounded-xl"],
+a[class*="rounded-lg"][class*="px-"],
+a[class*="inline-flex"][class*="items-center"][class*="justify-center"] {
+  cursor: pointer;
 }
 
 /* Enhanced focus states */

@@ -74,7 +74,14 @@ export async function POST(request: NextRequest) {
       } else {
         // No record exists, create one (but handle case where scan might have created it between check and insert)
         // Check if page_views column exists
-        const insertData: any = {
+        const insertData: {
+          listing_id: string;
+          date: string;
+          total_scans: number;
+          total_leads: number;
+          unique_visitors: number;
+          page_views?: number;
+        } = {
           listing_id,
           date: today,
           total_scans: 0,
@@ -135,14 +142,14 @@ export async function POST(request: NextRequest) {
       // Check if this session already has a scan (to prevent double-counting)
       const { data: existingSession } = await supabase
         .from('scan_sessions')
-        .select('id, scan_count')
+        .select('id, scan_count, source')
         .eq('listing_id', listing_id)
         .eq('session_id', sessionId)
-        .single();
+        .maybeSingle();
 
       if (!existingSession) {
         // Create new session (new unique visitor from page view only)
-        await supabase.from('scan_sessions').insert({
+        const insertResult = await supabase.from('scan_sessions').insert({
           listing_id,
           session_id: sessionId,
           device_type: deviceType,
@@ -151,17 +158,119 @@ export async function POST(request: NextRequest) {
           source: source || 'direct', // Track if this is from microsite visit or other
           scan_count: 0, // No scan, just page view
         });
-      } else if (existingSession.scan_count === 0) {
-        // Update existing session if it was created by page view only
-        // This prevents double-counting when scan happens after page view
-        await supabase
-          .from('scan_sessions')
-          .update({
+        
+        if (insertResult.error) {
+          // Handle duplicate key error - session was created between check and insert (race condition)
+          if (insertResult.error.code === '23505' || insertResult.error.message?.includes('duplicate key')) {
+            console.log('[PageView Track] Session created by race condition, fetching and updating instead');
+            // Fetch the existing session and update it
+            const { data: raceSession } = await supabase
+              .from('scan_sessions')
+              .select('id, scan_count, source')
+              .eq('listing_id', listing_id)
+              .eq('session_id', sessionId)
+              .maybeSingle();
+            
+            if (raceSession) {
+              // Treat as existing session and update accordingly
+              const updateData: {
+                device_type: string;
+                time_of_day: number;
+                referrer: string;
+                last_scan_at: string;
+                source?: string;
+              } = {
+                device_type: deviceType,
+                time_of_day: timeOfDay,
+                referrer: referrer,
+                last_scan_at: new Date().toISOString(),
+              };
+              
+              if (raceSession.scan_count === 0) {
+                updateData.source = source || raceSession.source || 'direct';
+              }
+              
+              await supabase
+                .from('scan_sessions')
+                .update(updateData)
+                .eq('id', raceSession.id);
+              
+              console.log('[PageView Track] Updated race condition session:', { 
+                id: raceSession.id, 
+                scan_count: raceSession.scan_count,
+                source: updateData.source || raceSession.source
+              });
+            }
+          } else {
+            console.error('[PageView Track] Failed to insert scan session:', insertResult.error);
+          }
+        } else {
+          console.log('[PageView Track] Created new scan session for page view:', { listing_id, source, sessionId, scan_count: 0 });
+        }
+      } else {
+        // Update existing session
+        console.log('[PageView Track] Found existing session:', { 
+          id: existingSession.id, 
+          scan_count: existingSession.scan_count,
+          current_source: existingSession.source 
+        });
+        
+        if (existingSession.scan_count === 0) {
+          // Update existing session if it was created by page view only (direct microsite visit)
+          // This prevents double-counting when scan happens after page view
+          const updateData: {
+            device_type: string;
+            time_of_day: number;
+            referrer: string;
+            source: string;
+            last_scan_at: string;
+          } = {
             device_type: deviceType,
             time_of_day: timeOfDay,
             referrer: referrer,
-          })
-          .eq('id', existingSession.id);
+            source: source || existingSession.source || 'direct',
+            last_scan_at: new Date().toISOString(), // Update timestamp for Recent Activity
+          };
+          
+          const updateResult = await supabase
+            .from('scan_sessions')
+            .update(updateData)
+            .eq('id', existingSession.id);
+          
+          if (updateResult.error) {
+            console.error('[PageView Track] Failed to update scan session:', updateResult.error);
+          } else {
+            console.log('[PageView Track] Updated existing scan session:', { 
+              id: existingSession.id, 
+              source: updateData.source,
+              scan_count: 0
+            });
+          }
+        } else {
+          // Session already has scans (QR scan happened first)
+          // Don't create a separate microsite visit entry - the QR scan already represents this activity
+          // Just update the timestamp so it shows as recent in Recent Activity
+          // This prevents double-counting: if they scanned QR, it's a "QR Code Scanned", not a separate "Microsite Visit"
+          const updateResult = await supabase
+            .from('scan_sessions')
+            .update({ 
+              last_scan_at: new Date().toISOString(), // Update timestamp so it shows as recent
+              device_type: deviceType,
+              time_of_day: timeOfDay,
+              referrer: referrer,
+            })
+            .eq('id', existingSession.id);
+          
+          if (updateResult.error) {
+            console.error('[PageView Track] Failed to update scan session timestamp:', updateResult.error);
+          } else {
+            console.log('[PageView Track] Updated QR scan session timestamp (no separate visit entry):', { 
+              id: existingSession.id,
+              scan_count: existingSession.scan_count,
+              source: existingSession.source
+            });
+          }
+        }
       }
 
       // Update unique visitors count

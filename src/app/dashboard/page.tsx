@@ -3,9 +3,12 @@ import { calculateConversionRate } from '@/lib/utils/analytics';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import ExtensionLink from '@/components/dashboard/ExtensionLink';
 import TopPerformingProperties from '@/components/dashboard/TopPerformingProperties';
+import OnboardingModalWrapper from '@/components/dashboard/OnboardingModalWrapper';
+import DashboardClient from '@/components/dashboard/DashboardClient';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
+import { Suspense } from 'react';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -16,6 +19,23 @@ export default async function DashboardPage() {
   if (!user) {
     return null;
   }
+
+  // Get user data and subscription status (no payment gating - all users can access)
+  const { data: userData } = await supabase
+    .from('users')
+    .select('onboarding_completed, has_paid, is_beta_user, full_name')
+    .eq('id', user.id)
+    .single();
+
+  // Check for active subscription (trial or paid)
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('status, plan, current_period_start, current_period_end, trial_started_at')
+    .eq('user_id', user.id)
+    .in('status', ['active', 'trialing', 'past_due'])
+    .maybeSingle();
+
+  const showOnboarding = !userData?.onboarding_completed;
 
   // Get user's listings count
   const { count: listingsCount } = await supabase
@@ -91,14 +111,19 @@ export default async function DashboardPage() {
     (allListingsForTop || []).map(async (listing) => {
       const { data: listingAnalytics } = await supabase
         .from('analytics')
-        .select('total_scans, total_leads')
+        .select('total_scans, total_leads, page_views')
         .eq('listing_id', listing.id);
 
       const listingScans =
         listingAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
       const listingLeads =
         listingAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
-      const listingConversionRate = calculateConversionRate(listingScans, listingLeads);
+      const listingPageViews =
+        listingAnalytics?.reduce((sum, a) => sum + (a.page_views || 0), 0) || 0;
+      const listingConversionRate = calculateConversionRate(listingScans, listingLeads, {
+        includePageViews: true,
+        pageViews: listingPageViews,
+      });
 
       return {
         listing_id: listing.id,
@@ -106,6 +131,7 @@ export default async function DashboardPage() {
         city: listing.city,
         state: listing.state,
         total_scans: listingScans,
+        total_page_views: listingPageViews,
         total_leads: listingLeads,
         conversion_rate: listingConversionRate,
       };
@@ -114,8 +140,8 @@ export default async function DashboardPage() {
 
   // Sort by activity (properties with activity first)
   topPerformers.sort((a, b) => {
-    const aActivity = a.total_scans + a.total_leads;
-    const bActivity = b.total_scans + b.total_leads;
+    const aActivity = a.total_scans + a.total_page_views + a.total_leads;
+    const bActivity = b.total_scans + b.total_page_views + b.total_leads;
     
     // Properties with activity always come first
     if (aActivity === 0 && bActivity > 0) return 1;
@@ -127,19 +153,37 @@ export default async function DashboardPage() {
       return b.conversion_rate - a.conversion_rate;
     }
     
-    // Finally by total scans
-    return b.total_scans - a.total_scans;
+    // Finally by total traffic (scans + page views)
+    const aTraffic = a.total_scans + a.total_page_views;
+    const bTraffic = b.total_scans + b.total_page_views;
+    return bTraffic - aTraffic;
   });
 
   return (
     <div>
+      {/* Trial Banner and Modals - Client Component */}
+      <Suspense fallback={null}>
+        <DashboardClient
+          subscription={subscription}
+          isBetaUser={userData?.is_beta_user || false}
+          onboardingCompleted={userData?.onboarding_completed || false}
+        />
+      </Suspense>
+
+      {/* Legacy Onboarding Modal - Only show if onboarding not completed and has subscription */}
+      {showOnboarding && subscription && (
+        <Suspense fallback={null}>
+          <OnboardingModalWrapper />
+        </Suspense>
+      )}
+
       {/* Hero Section */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Welcome back
         </h1>
         <p className="text-gray-600">
-          Here's how your properties are performing
+          Here&apos;s how your properties are performing
         </p>
       </div>
 

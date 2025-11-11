@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+
 interface ConversionFunnelProps {
   scans: number;
   pageViews: number;
@@ -13,6 +15,18 @@ export default function ConversionFunnel({
   uniqueVisitors,
   leads,
 }: ConversionFunnelProps) {
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const checkDesktop = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, []);
+
   const totalTraffic = Math.max(scans, uniqueVisitors, pageViews);
   const scanToLeadRate = scans > 0 ? (leads / scans) * 100 : 0;
   const viewToLeadRate = pageViews > 0 ? (leads / pageViews) * 100 : 0;
@@ -59,81 +73,94 @@ export default function ConversionFunnel({
   return (
     <div className="relative py-4">
       {/* Funnel Stages */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {stages.map((stage, index) => {
           const dropoff = index > 0 
             ? ((stages[index - 1].value - stage.value) / stages[index - 1].value * 100).toFixed(1)
             : null;
           
-          return (
-            <div key={stage.label} className="relative">
-              {/* Funnel Stage */}
-              <div 
-                className="relative group cursor-pointer transition-all duration-300 hover:scale-[1.01]"
-                style={{
-                  width: `${Math.max(stage.percentage, 15)}%`,
-                  marginLeft: `${(100 - Math.max(stage.percentage, 15)) / 2}%`,
-                }}
-              >
-                {/* Main Funnel Bar */}
-                <div 
-                  className="relative overflow-hidden rounded-xl shadow-md hover:shadow-xl transition-all"
-                  style={{
-                    background: `linear-gradient(135deg, ${stage.color}15 0%, ${stage.color}25 100%)`,
-                    border: `2px solid ${stage.color}40`,
-                  }}
-                >
-                  {/* Animated gradient overlay on hover */}
-                  <div 
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    style={{
-                      background: `linear-gradient(135deg, ${stage.color}25 0%, ${stage.color}35 100%)`,
-                    }}
-                  />
-                  
-                  {/* Content */}
-                  <div className="relative px-5 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{stage.icon}</span>
-                      <div>
-                        <p className="font-semibold text-gray-900 text-sm">{stage.label}</p>
-                        <p className="text-xs text-gray-600 mt-0.5">
-                          {stage.percentage.toFixed(1)}% of traffic
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-3xl font-bold text-gray-900">{stage.value}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {stage.value === 1 ? 'visitor' : 'visitors'}
-                      </p>
-                    </div>
-                  </div>
+          // Calculate bar width for funnel effect - wider at top, narrower at bottom
+          const barWidth = isDesktop ? Math.max(stage.percentage, 40) : 100;
 
-                  {/* Progress indicator at bottom */}
-                  <div className="h-1.5 w-full" style={{ backgroundColor: `${stage.color}15` }}>
+          return (
+            <div key={stage.label} className="relative w-full">
+              {/* Funnel Stage Container - Centered */}
+              <div className="flex justify-center w-full">
+                <div 
+                  className="relative group transition-all duration-300 hover:scale-[1.01] w-full max-w-3xl"
+                >
+                  {/* Main Funnel Bar - Centered with proper width */}
+                  <div 
+                    className="relative overflow-hidden rounded-xl shadow-sm hover:shadow-md transition-all"
+                    style={{
+                      width: isDesktop ? `${barWidth}%` : '100%',
+                      marginLeft: isDesktop ? 'auto' : '0',
+                      marginRight: isDesktop ? 'auto' : '0',
+                      background: `linear-gradient(135deg, ${stage.color}08 0%, ${stage.color}15 100%)`,
+                      border: `1.5px solid ${stage.color}30`,
+                    }}
+                  >
+                    {/* Subtle gradient overlay on hover */}
                     <div 
-                      className="h-full transition-all duration-700 ease-out"
-                      style={{ 
-                        width: `${stage.percentage}%`,
-                        background: `linear-gradient(90deg, ${stage.color} 0%, ${stage.color}cc 100%)`,
+                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      style={{
+                        background: `linear-gradient(135deg, ${stage.color}12 0%, ${stage.color}20 100%)`,
                       }}
                     />
+                    
+                    {/* Content - Spread out layout (left text, right numbers) */}
+                    <div className="relative px-5 sm:px-6 md:px-8 py-4 sm:py-5">
+                      <div className="flex items-center justify-between gap-4">
+                        {/* Left Side - Icon, Label, Percentage */}
+                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                          <span className="text-xl sm:text-2xl shrink-0">{stage.icon}</span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900 text-sm sm:text-base leading-tight">
+                              {stage.label}
+                            </p>
+                            <p className="text-xs sm:text-sm text-gray-600 mt-0.5 leading-tight">
+                              {stage.percentage.toFixed(1)}% of traffic
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Right Side - Value */}
+                        <div className="text-right shrink-0">
+                          <p className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
+                            {stage.value}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5 leading-tight whitespace-nowrap">
+                            {stage.value === 1 ? 'visitor' : 'visitors'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress indicator at bottom */}
+                    <div className="h-1 w-full" style={{ backgroundColor: `${stage.color}10` }}>
+                      <div 
+                        className="h-full transition-all duration-700 ease-out"
+                        style={{ 
+                          width: `${stage.percentage}%`,
+                          background: `linear-gradient(90deg, ${stage.color} 0%, ${stage.color}dd 100%)`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Drop-off indicator between stages */}
               {dropoff && parseFloat(dropoff) > 0 && (
-                <div className="flex items-center justify-center py-2.5">
+                <div className="flex items-center justify-center py-3">
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-full shadow-sm">
-                    <svg className="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                     </svg>
-                    <span className="text-xs font-semibold text-red-700">
+                    <span className="text-xs font-semibold text-red-700 whitespace-nowrap">
                       {dropoff}% drop-off
                     </span>
-                    <span className="text-xs text-red-600">
+                    <span className="text-xs text-red-600 whitespace-nowrap">
                       ({stages[index - 1].value - stage.value} lost)
                     </span>
                   </div>
