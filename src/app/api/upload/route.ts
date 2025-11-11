@@ -72,7 +72,6 @@ export async function POST(request: NextRequest) {
       // Bucket doesn't exist
       if (uploadError.message?.includes('not found') || 
           uploadError.message?.includes('does not exist') ||
-          uploadError.statusCode === '404' ||
           uploadError.message?.includes('Bucket')) {
         return NextResponse.json(
           { 
@@ -87,8 +86,7 @@ export async function POST(request: NextRequest) {
       // Permission/RLS errors
       if (uploadError.message?.includes('new row violates row-level security') ||
           uploadError.message?.includes('permission') ||
-          uploadError.message?.includes('policy') ||
-          uploadError.statusCode === '403') {
+          uploadError.message?.includes('policy')) {
         return NextResponse.json(
           { 
             error: 'Permission denied. Please check your storage RLS policies. Run the SQL in supabase/storage_policies.sql in the Supabase SQL Editor. See SETUP_STORAGE.md for instructions.',
@@ -102,8 +100,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           error: `Failed to upload file: ${uploadError.message || 'Unknown error'}`,
-          details: uploadError.message,
-          statusCode: uploadError.statusCode
+          details: uploadError.message
         },
         { status: 500 }
       );
