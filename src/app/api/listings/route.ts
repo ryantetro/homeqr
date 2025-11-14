@@ -318,6 +318,7 @@ export async function PUT(request: NextRequest) {
       bedrooms?: number | null;
       bathrooms?: number | null;
       square_feet?: number | null;
+      status?: string;
     } = {};
     if (updates.address) updateData.address = updates.address;
     if (updates.city !== undefined) updateData.city = updates.city;
@@ -330,6 +331,12 @@ export async function PUT(request: NextRequest) {
     if (updates.bedrooms !== undefined) updateData.bedrooms = updates.bedrooms ? parseInt(updates.bedrooms) : null;
     if (updates.bathrooms !== undefined) updateData.bathrooms = updates.bathrooms ? parseFloat(updates.bathrooms) : null;
     if (updates.square_feet !== undefined) updateData.square_feet = updates.square_feet ? parseInt(updates.square_feet) : null;
+    if (updates.status !== undefined) {
+      // Validate status value
+      if (['active', 'inactive', 'deleted'].includes(updates.status)) {
+        updateData.status = updates.status;
+      }
+    }
 
     const { data: listing, error } = await supabase
       .from('listings')

@@ -7,6 +7,7 @@ import Card from '@/components/ui/Card';
 import { formatCurrency } from '@/lib/utils/format';
 import Link from 'next/link';
 import ImageGallery from '@/components/listings/ImageGallery';
+import ListingActions from '@/components/listings/ListingActions';
 
 export default async function ListingDetailPage({
   params,
@@ -151,37 +152,60 @@ export default async function ListingDetailPage({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <div className="text-right">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Status</p>
-              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
-                Active
-              </span>
+              {(() => {
+                const status = listing.status || 'active';
+                const statusConfig = {
+                  active: {
+                    label: 'Active',
+                    className: 'bg-green-100 text-green-700 border-green-200',
+                  },
+                  inactive: {
+                    label: 'Inactive',
+                    className: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+                  },
+                  deleted: {
+                    label: 'Deleted',
+                    className: 'bg-gray-100 text-gray-700 border-gray-200',
+                  },
+                };
+                const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active;
+                return (
+                  <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${config.className}`}>
+                    {config.label}
+                  </span>
+                );
+              })()}
             </div>
-            {listing.url && (
-              <a
-                href={listing.url}
+            <div className="flex items-center gap-2">
+              {listing.url && (
+                <a
+                  href={listing.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors border border-gray-300"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  View Original Listing
+                </a>
+              )}
+              <Link
+                href={listing.slug ? `/${listing.slug}` : `/listing/${listing.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors border border-gray-300"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
-                View Original Listing
-              </a>
-            )}
-            <Link
-              href={listing.slug ? `/${listing.slug}` : `/listing/${listing.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              View Microsite
-            </Link>
+                View Microsite
+              </Link>
+              <ListingActions listingId={listing.id} currentStatus={listing.status || 'active'} />
+            </div>
           </div>
         </div>
       </div>
@@ -664,6 +688,16 @@ export default async function ListingDetailPage({
                   scan_count: qrCode.scan_count || 0,
                 } : null}
                 analyticsScanCount={displayScans}
+                listingDetails={{
+                  address: listing.address,
+                  city: listing.city,
+                  state: listing.state,
+                  price: listing.price,
+                  bedrooms: listing.bedrooms,
+                  bathrooms: listing.bathrooms,
+                  square_feet: listing.square_feet,
+                  image_url: listing.image_url,
+                }}
               />
             </div>
           </Card>

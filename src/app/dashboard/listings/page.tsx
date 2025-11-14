@@ -6,8 +6,16 @@ import { calculateConversionRate } from '@/lib/utils/analytics';
 import Card from '@/components/ui/Card';
 import ListingCardImage from '@/components/listings/ListingCardImage';
 import { checkUserAccess } from '@/lib/subscription/access';
+import StatusFilter from '@/components/listings/StatusFilter';
+import { Suspense } from 'react';
 
-export default async function ListingsPage() {
+export default async function ListingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
+  const params = await searchParams;
+  const statusFilter = params.status || 'active';
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,12 +29,24 @@ export default async function ListingsPage() {
   const access = await checkUserAccess(user.id);
   const isExpired = !access.hasAccess && access.reason !== 'beta';
 
-  const { data: listings } = await supabase
+  // Build query based on status filter
+  let query = supabase
     .from('listings')
-    .select('id, address, city, state, price, image_url, created_at, qrcodes(id, scan_count)')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false });
+    .select('id, address, city, state, price, image_url, created_at, status, qrcodes(id, scan_count)')
+    .eq('user_id', user.id);
+
+  // Apply status filter
+  if (statusFilter === 'all') {
+    // Show all statuses (no filter applied)
+    // Query will return all listings for the user
+  } else if (statusFilter === 'active' || statusFilter === 'inactive' || statusFilter === 'deleted') {
+    query = query.eq('status', statusFilter);
+  } else {
+    // Default to active if invalid filter
+    query = query.eq('status', 'active');
+  }
+
+  const { data: listings } = await query.order('created_at', { ascending: false });
 
   // Get analytics for conversion rates
   const listingIds = listings?.map((l) => l.id) || [];
@@ -79,6 +99,10 @@ export default async function ListingsPage() {
           </Link>
         )}
       </div>
+
+      <Suspense fallback={<div className="mb-6 h-10" />}>
+        <StatusFilter />
+      </Suspense>
 
       {listings && listings.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -245,11 +269,17 @@ export default async function ListingsPage() {
         <Card>
           <div className="p-12 text-center">
             <p className="text-gray-600 mb-4">
-              No listings yet. Create your first listing to get started!
+              {statusFilter === 'all'
+                ? 'No listings found.'
+                : statusFilter === 'active'
+                ? 'No listings yet. Create your first listing to get started!'
+                : `No ${statusFilter} listings found.`}
             </p>
-            <Link href="/dashboard/listings/new">
-              <Button variant="primary">Create Your First Listing</Button>
-            </Link>
+            {statusFilter === 'active' && (
+              <Link href="/dashboard/listings/new">
+                <Button variant="primary">Create Your First Listing</Button>
+              </Link>
+            )}
           </div>
         </Card>
       )}

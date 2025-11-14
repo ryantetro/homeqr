@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import Button from '@/components/ui/Button';
 import { useQRCode } from '@/hooks/useQRCode';
 import type { GenerateQRResponse } from '@/types/api';
+import QRCustomizationModal from './QRCustomizationModal';
 
 interface QRCodeDisplayProps {
   listingId: string;
@@ -15,12 +16,47 @@ interface QRCodeDisplayProps {
   } | null;
   analyticsScanCount?: number; // Pass analytics scan count as prop
   onQRGenerated?: (qr: GenerateQRResponse) => void;
+  // Optional listing details for customization
+  listingDetails?: {
+    address: string;
+    city?: string | null;
+    state?: string | null;
+    price?: number | null;
+    bedrooms?: number | null;
+    bathrooms?: number | null;
+    square_feet?: number | null;
+    image_url?: string | null;
+  };
 }
 
-export default function QRCodeDisplay({ listingId, existingQR, analyticsScanCount, onQRGenerated }: QRCodeDisplayProps) {
+export default function QRCodeDisplay({ 
+  listingId, 
+  existingQR, 
+  analyticsScanCount, 
+  onQRGenerated,
+  listingDetails,
+}: QRCodeDisplayProps) {
   const { generateQR, loading, error } = useQRCode();
   const [qrData, setQrData] = useState(existingQR);
   const [scanCount, setScanCount] = useState(existingQR?.scan_count || 0);
+  const [isCustomizationModalOpen, setIsCustomizationModalOpen] = useState(false);
+  
+  // Parse property image from listing details
+  const propertyImage = listingDetails?.image_url ? (() => {
+    try {
+      const parsed = JSON.parse(listingDetails.image_url);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed[0];
+      } else if (typeof parsed === 'string') {
+        return parsed;
+      }
+    } catch {
+      if (typeof listingDetails.image_url === 'string') {
+        return listingDetails.image_url;
+      }
+    }
+    return undefined;
+  })() : undefined;
 
   // Use analytics scan count if provided (more accurate), otherwise use QR code scan_count
   useEffect(() => {
@@ -109,8 +145,16 @@ export default function QRCodeDisplay({ listingId, existingQR, analyticsScanCoun
         </div>
         <div className="space-y-3">
           <Button 
-            onClick={handleDownload} 
+            onClick={() => setIsCustomizationModalOpen(true)} 
             variant="primary" 
+            className="w-full"
+            size="md"
+          >
+            Customize & Download
+          </Button>
+          <Button 
+            onClick={handleDownload} 
+            variant="outline" 
             className="w-full"
             size="md"
           >
@@ -118,7 +162,7 @@ export default function QRCodeDisplay({ listingId, existingQR, analyticsScanCoun
           </Button>
           <Button 
             onClick={handleDownloadPDF} 
-            variant="primary" 
+            variant="outline" 
             className="w-full"
             size="md"
           >
@@ -134,6 +178,24 @@ export default function QRCodeDisplay({ listingId, existingQR, analyticsScanCoun
             {loading ? 'Regenerating...' : 'Regenerate'}
           </Button>
         </div>
+        
+        {/* Customization Modal */}
+        {qrData?.qr_url && listingDetails && (
+          <QRCustomizationModal
+            isOpen={isCustomizationModalOpen}
+            onClose={() => setIsCustomizationModalOpen(false)}
+            listingId={listingId}
+            qrUrl={qrData.qr_url}
+            address={listingDetails.address}
+            city={listingDetails.city || undefined}
+            state={listingDetails.state || undefined}
+            price={listingDetails.price || undefined}
+            bedrooms={listingDetails.bedrooms || undefined}
+            bathrooms={listingDetails.bathrooms || undefined}
+            squareFeet={listingDetails.square_feet || undefined}
+            propertyImage={propertyImage}
+          />
+        )}
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-medium">
             {error}
