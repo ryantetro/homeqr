@@ -17,6 +17,30 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: '**.utahrealestate.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'assets.utahrealestate.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.realtor.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.redfin.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.homes.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.trulia.com',
+      },
+      {
+        protocol: 'https',
         hostname: '**.supabase.co',
       },
       {

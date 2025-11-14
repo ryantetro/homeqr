@@ -259,6 +259,182 @@ async function tryJsonCache() {
 }
 
 // ============================================================
+// Helper: Extract price from meta tags
+// ============================================================
+function extractPriceFromMetaTags() {
+  const ogTitle = document.querySelector('meta[property="og:title"]')?.content || "";
+  const ogDescription = document.querySelector('meta[property="og:description"]')?.content || "";
+  
+  // Pattern 1: "$523,900 | ..." (price at start of ogTitle)
+  const priceAtStart = ogTitle.match(/^\$\s*([\d,]+(?:,\d{3})*(?:\.\d{2})?)/);
+  if (priceAtStart) {
+    return formatPrice(priceAtStart[0]);
+  }
+  
+  // Pattern 2: "... | $523,900" (price in ogTitle after pipe)
+  const priceAfterPipe = ogTitle.match(/\|\s*\$?\s*([\d,]+(?:,\d{3})*(?:\.\d{2})?)/);
+  if (priceAfterPipe) {
+    return formatPrice(`$${priceAfterPipe[1]}`);
+  }
+  
+  // Pattern 3: "Listed for sale at $1595000" (ogDescription)
+  const listedForSale = ogDescription.match(/listed\s+for\s+sale\s+at\s+\$?\s*([\d,]+(?:,\d{3})*(?:\.\d{2})?)/i);
+  if (listedForSale) {
+    return formatPrice(`$${listedForSale[1]}`);
+  }
+  
+  // Pattern 4: "$290,000 ∙ ..." or "... ∙ $290,000" (ogDescription with bullet)
+  const priceWithBullet = ogDescription.match(/\$?\s*([\d,]+(?:,\d{3})*(?:\.\d{2})?)\s*[∙•·]/);
+  if (priceWithBullet) {
+    return formatPrice(`$${priceWithBullet[1]}`);
+  }
+  
+  // Pattern 5: General price pattern in ogDescription
+  const generalPrice = ogDescription.match(/\$\s*([\d,]+(?:,\d{3})*(?:\.\d{2})?)/);
+  if (generalPrice) {
+    const priceNum = parseInt(generalPrice[1].replace(/,/g, ''));
+    // Only accept reasonable prices (between $10,000 and $50,000,000)
+    if (priceNum >= 10000 && priceNum <= 50000000) {
+      return formatPrice(`$${generalPrice[1]}`);
+    }
+  }
+  
+  return null;
+}
+
+// ============================================================
+// Helper: Extract address from meta tags
+// ============================================================
+function extractAddressFromMetaTags() {
+  const ogTitle = document.querySelector('meta[property="og:title"]')?.content || "";
+  const ogDescription = document.querySelector('meta[property="og:description"]')?.content || "";
+  
+  let extractedAddress = null;
+  let extractedCity = null;
+  let extractedState = null;
+  let extractedZip = null;
+  
+  // Pattern 1: "$523,900 | 414 N 100 E American Fork UT 84003" (price | address in ogTitle)
+  const priceAddressPattern = ogTitle.match(/\$\s*[\d,]+\s*\|\s*(.+)/);
+  if (priceAddressPattern) {
+    const addressPart = priceAddressPattern[1].trim();
+    // Try to parse full address: "414 N 100 E American Fork UT 84003"
+    // Pattern: street (may have directional) city state zip
+    const fullAddressMatch = addressPart.match(/^(\d+\s+[^,]+(?:[NS]|[EW]|[North]|[South]|[East]|[West])?[^,]*),?\s*([^,]+?),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)/);
+    if (fullAddressMatch) {
+      extractedAddress = fullAddressMatch[1].trim();
+      extractedCity = fullAddressMatch[2].trim();
+      extractedState = fullAddressMatch[3].trim();
+      extractedZip = fullAddressMatch[4].trim();
+    } else {
+      // Try pattern without comma: "414 N 100 E American Fork UT 84003"
+      // Match: number + street + city + state + zip (no commas)
+      const noCommaMatch = addressPart.match(/^(\d+\s+[^A-Z]+?)\s+([A-Z][^A-Z]+?)\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+      if (noCommaMatch) {
+        extractedAddress = noCommaMatch[1].trim();
+        extractedCity = noCommaMatch[2].trim();
+        extractedState = noCommaMatch[3].trim();
+        extractedZip = noCommaMatch[4].trim();
+      } else {
+        // Fallback: split by comma if present, otherwise take first part as address
+        if (addressPart.includes(',')) {
+          extractedAddress = addressPart.split(',')[0].trim();
+          const remaining = addressPart.substring(addressPart.indexOf(',') + 1).trim();
+          const cityStateZip = remaining.match(/^([^,]+?),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)/);
+          if (cityStateZip) {
+            extractedCity = cityStateZip[1].trim();
+            extractedState = cityStateZip[2].trim();
+            extractedZip = cityStateZip[3].trim();
+          }
+        } else {
+          // No comma - try to extract address and city/state/zip
+          // "414 N 100 E American Fork UT 84003" -> address: "414 N 100 E", city: "American Fork", state: "UT", zip: "84003"
+          const parts = addressPart.split(/\s+/);
+          if (parts.length >= 5) {
+            // Find where state code appears (2-letter uppercase)
+            let stateIdx = -1;
+            for (let i = 0; i < parts.length; i++) {
+              if (/^[A-Z]{2}$/.test(parts[i]) && i > 0 && i < parts.length - 1) {
+                // Check if next part looks like a zip code
+                if (/^\d{5}(?:-\d{4})?$/.test(parts[i + 1])) {
+                  stateIdx = i;
+                  break;
+                }
+              }
+            }
+            if (stateIdx > 0 && stateIdx < parts.length - 1) {
+              // Address is everything before city (which is before state)
+              // City is usually 1-3 words before state
+              let cityStartIdx = stateIdx - 1;
+              // Try to find where city starts (usually after a number or directional)
+              for (let i = stateIdx - 1; i >= 0; i--) {
+                if (/^\d+$/.test(parts[i]) || /^[NS]|[EW]$/i.test(parts[i])) {
+                  cityStartIdx = i + 1;
+                  break;
+                }
+              }
+              extractedAddress = parts.slice(0, cityStartIdx).join(' ');
+              extractedCity = parts.slice(cityStartIdx, stateIdx).join(' ');
+              extractedState = parts[stateIdx];
+              extractedZip = parts[stateIdx + 1];
+            } else {
+              // Fallback: just use the whole thing as address
+              extractedAddress = addressPart;
+            }
+          } else {
+            // Too few parts, use as-is
+            extractedAddress = addressPart;
+          }
+        }
+      }
+    }
+  }
+  
+  // Pattern 2: "1816 S Yuma St, Salt Lake City, UT 84109 - For Sale" (address in ogTitle)
+  if (!extractedAddress) {
+    const addressInTitle = ogTitle.match(/^([^|]+?)(?:\s*-\s*|$)/);
+    if (addressInTitle) {
+      const addressText = addressInTitle[1].trim();
+      // Check if it looks like an address (has numbers and street indicators)
+      if (/\d/.test(addressText) && (/\b(st|street|ave|avenue|rd|road|dr|drive|ln|lane|blvd|boulevard|ct|court|pl|place|way|cir|circle)\b/i.test(addressText) || 
+          /\b(n|s|e|w|north|south|east|west)\b/i.test(addressText))) {
+        const fullAddressMatch = addressText.match(/^(.+?),\s*([^,]+?),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)/);
+        if (fullAddressMatch) {
+          extractedAddress = fullAddressMatch[1].trim();
+          extractedCity = fullAddressMatch[2].trim();
+          extractedState = fullAddressMatch[3].trim();
+          extractedZip = fullAddressMatch[4].trim();
+        } else {
+          extractedAddress = addressText;
+        }
+      }
+    }
+  }
+  
+  // Pattern 3: Address in ogDescription
+  if (!extractedAddress && ogDescription) {
+    const addressInDesc = ogDescription.match(/located\s+at\s+([^\.]+?)(?:\.|$)/i);
+    if (addressInDesc) {
+      const addressText = addressInDesc[1].trim();
+      const fullAddressMatch = addressText.match(/^(.+?),\s*([^,]+?),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)/);
+      if (fullAddressMatch) {
+        extractedAddress = fullAddressMatch[1].trim();
+        extractedCity = fullAddressMatch[2].trim();
+        extractedState = fullAddressMatch[3].trim();
+        extractedZip = fullAddressMatch[4].trim();
+      }
+    }
+  }
+  
+  return {
+    address: extractedAddress,
+    city: extractedCity,
+    state: extractedState,
+    zip: extractedZip
+  };
+}
+
+// ============================================================
 // 2. DOM Fallback (GENERIC - works on any listing site)
 // ============================================================
 function fallbackDOM() {
@@ -275,37 +451,114 @@ function fallbackDOM() {
   for (const script of jsonLdScripts) {
     try {
       const data = JSON.parse(script.textContent);
-      if (data['@type'] === 'Product' || data['@type'] === 'Place' || data['@type'] === 'RealEstateListing') {
-        // Extract address
-        if (data.address) {
-          address = data.address.streetAddress || data.address.addressLocality || address;
-          city = data.address.addressLocality || city;
-          state = data.address.addressRegion || state;
-          zip = data.address.postalCode || zip;
+      // Handle both single objects and arrays
+      const items = Array.isArray(data) ? data : [data];
+      
+      for (const item of items) {
+        const type = item['@type'];
+        // Support more schema types for real estate listings
+        const isRealEstateType = type === 'Product' || 
+                                 type === 'Place' || 
+                                 type === 'RealEstateListing' ||
+                                 type === 'SingleFamilyResidence' ||
+                                 type === 'House' ||
+                                 type === 'Apartment' ||
+                                 type === 'LocalBusiness' ||
+                                 (Array.isArray(type) && type.some(t => 
+                                   t === 'Product' || t === 'Place' || t === 'RealEstateListing'
+                                 ));
+        
+        if (isRealEstateType) {
+          // Extract address - handle multiple formats
+          if (item.address) {
+            const addr = item.address;
+            // Handle both object and string formats
+            if (typeof addr === 'object') {
+              address = addr.streetAddress || addr.street || addr.addressLine1 || address;
+              city = addr.addressLocality || addr.city || city;
+              state = addr.addressRegion || addr.region || addr.state || state;
+              zip = addr.postalCode || addr.postcode || addr.zip || zip;
+            } else if (typeof addr === 'string') {
+              // Try to parse string address
+              const parts = addr.split(',').map(s => s.trim());
+              if (parts.length >= 2) {
+                address = parts[0] || address;
+                city = parts[1] || city;
+                if (parts.length >= 3) {
+                  const stateZip = parts[2].match(/([A-Z]{2})\s*(\d{5}(?:-\d{4})?)/);
+                  if (stateZip) {
+                    state = stateZip[1] || state;
+                    zip = stateZip[2] || zip;
+                  }
+                }
+              }
+            }
+          }
+          
+          // Extract price - handle multiple formats
+          if (item.offers) {
+            const offers = Array.isArray(item.offers) ? item.offers[0] : item.offers;
+            if (offers?.price) {
+              price = formatPrice(offers.price);
+            } else if (offers?.priceSpecification?.price) {
+              price = formatPrice(offers.priceSpecification.price);
+            }
+          } else if (item.price) {
+            price = formatPrice(item.price);
+          }
+          
+          // Extract property details - handle multiple field names
+          if (item.numberOfBedrooms) bedrooms = String(item.numberOfBedrooms);
+          else if (item.bedrooms) bedrooms = String(item.bedrooms);
+          else if (item.beds) bedrooms = String(item.beds);
+          
+          if (item.numberOfBathroomsTotal) bathrooms = String(item.numberOfBathroomsTotal);
+          else if (item.bathrooms) bathrooms = String(item.bathrooms);
+          else if (item.baths) bathrooms = String(item.baths);
+          else if (item.numberOfBathrooms) bathrooms = String(item.numberOfBathrooms);
+          
+          if (item.floorSize?.value) squareFeet = String(item.floorSize.value);
+          else if (item.floorSize) squareFeet = String(item.floorSize);
+          else if (item.area?.value) squareFeet = String(item.area.value);
+          else if (item.squareFeet) squareFeet = String(item.squareFeet);
+          else if (item.livingArea) squareFeet = String(item.livingArea);
+          
+          console.log("[HomeQR] ✅ Found JSON-LD structured data (type: " + type + ")");
+          // Don't break - continue to check other scripts for more complete data
         }
-        // Extract price
-        if (data.offers?.price) {
-          price = formatPrice(data.offers.price);
-        }
-        // Extract property details
-        if (data.numberOfBedrooms) bedrooms = String(data.numberOfBedrooms);
-        if (data.numberOfBathroomsTotal) bathrooms = String(data.numberOfBathroomsTotal);
-        if (data.floorSize?.value) squareFeet = String(data.floorSize.value);
-        console.log("[HomeQR] ✅ Found JSON-LD structured data");
-        break;
       }
-    } catch {
+    } catch (err) {
+      console.log("[HomeQR] ⚠️ Error parsing JSON-LD:", err.message);
       // Continue to next script
     }
   }
 
   // ============================================================
-  // STEP 2: Try Open Graph and other meta tags
+  // STEP 2: Try Open Graph and other meta tags (IMPROVED)
   // ============================================================
+  // Extract address from meta tags first (before DOM) if meta tags contain structured data
+  const metaAddress = extractAddressFromMetaTags();
+  if (metaAddress.address) {
+    // Check if meta address is more reliable than generic DOM text
+    // Meta address is reliable if it contains numbers and street indicators
+    const isStructuredAddress = /\d/.test(metaAddress.address) && 
+                                 (/\b(st|street|ave|avenue|rd|road|dr|drive|ln|lane|blvd|boulevard|ct|court|pl|place|way|cir|circle|n|s|e|w|north|south|east|west)\b/i.test(metaAddress.address) ||
+                                  metaAddress.city); // Or if it has city component
+    
+    if (isStructuredAddress) {
+      address = metaAddress.address;
+      if (metaAddress.city) city = metaAddress.city;
+      if (metaAddress.state) state = metaAddress.state;
+      if (metaAddress.zip) zip = metaAddress.zip;
+      console.log("[HomeQR] ✅ Address extracted from meta tags:", address);
+    }
+  }
+  
+  // Fallback: Try simple ogTitle extraction if meta extraction didn't work
   if (!address) {
     const ogTitle = document.querySelector('meta[property="og:title"]')?.content;
-    if (ogTitle && !ogTitle.includes('Home') && !ogTitle.includes('Listing')) {
-      // Try to extract address from OG title
+    if (ogTitle && !ogTitle.includes('Home') && !ogTitle.includes('Listing') && !ogTitle.includes('Dream Property')) {
+      // Try to extract address from OG title (simple pattern)
       address = ogTitle.split('|')[0].split('-')[0].trim();
     }
   }
@@ -314,22 +567,36 @@ function fallbackDOM() {
   // STEP 3: Generic DOM selectors (works across many sites)
   // ============================================================
   
-  // Extract price - try many common patterns (Zillow-specific first)
+  // Extract price - try many common patterns (improved for cross-site compatibility)
   if (!price) {
-    // Zillow-specific price selectors (most reliable)
-    price =
-      document.querySelector('[data-testid="price"]')?.textContent?.trim() ||
-      document.querySelector('[data-testid*="Price"]')?.textContent?.trim() ||
-      document.querySelector('[data-testid*="price"]')?.textContent?.trim() ||
-      document.querySelector('span[data-testid*="price"]')?.textContent?.trim() ||
-      // Zillow class-based selectors
-      document.querySelector('.ds-price')?.textContent?.trim() ||
-      document.querySelector('[class*="Price"]')?.textContent?.trim() ||
-      document.querySelector('[class*="price"]')?.textContent?.trim() ||
-      // Generic selectors
-      document.querySelector('.price, .listing-price, .property-price')?.textContent?.trim() ||
-      document.querySelector('span[class*="price"], div[class*="price"]')?.textContent?.trim() ||
-      "";
+    // Try itemprop microdata first (schema.org)
+    const priceEl = document.querySelector('[itemprop="price"]');
+    if (priceEl) {
+      const priceValue = priceEl.getAttribute('content') || priceEl.textContent?.trim();
+      if (priceValue) {
+        price = formatPrice(priceValue);
+      }
+    }
+    
+    // Try common price selectors (Zillow-specific first, then generic)
+    if (!price) {
+      price =
+        // Zillow-specific price selectors (most reliable)
+        document.querySelector('[data-testid="price"]')?.textContent?.trim() ||
+        document.querySelector('[data-testid*="Price"]')?.textContent?.trim() ||
+        document.querySelector('[data-testid*="price"]')?.textContent?.trim() ||
+        document.querySelector('span[data-testid*="price"]')?.textContent?.trim() ||
+        // Zillow class-based selectors
+        document.querySelector('.ds-price')?.textContent?.trim() ||
+        // Generic selectors (improved for cross-site)
+        document.querySelector('[class*="Price"]')?.textContent?.trim() ||
+        document.querySelector('[class*="price"]')?.textContent?.trim() ||
+        document.querySelector('.price, .listing-price, .property-price')?.textContent?.trim() ||
+        document.querySelector('[class*="list-price"]')?.textContent?.trim() ||
+        document.querySelector('[class*="sale-price"]')?.textContent?.trim() ||
+        document.querySelector('span[class*="price"], div[class*="price"]')?.textContent?.trim() ||
+        "";
+    }
     
     // Clean up price (remove "Price cut", "Est.", etc.)
     if (price) {
@@ -388,28 +655,75 @@ function fallbackDOM() {
       }
     }
     
+    // If still no price, try meta tags as fallback
+    if (!price) {
+      const metaPrice = extractPriceFromMetaTags();
+      if (metaPrice) {
+        price = metaPrice;
+        console.log("[HomeQR] ✅ Price extracted from meta tags:", price);
+      }
+    }
+    
     if (price) {
-      console.log("[HomeQR] ✅ Price extracted from DOM:", price);
+      console.log("[HomeQR] ✅ Price extracted:", price);
     } else {
-      console.log("[HomeQR] ⚠️ No price found in DOM");
+      console.log("[HomeQR] ⚠️ No price found in DOM or meta tags");
     }
   }
 
-  // Extract address - try many common patterns
+  // Extract address - try many common patterns (improved for cross-site compatibility)
+  // Note: Meta tag extraction already happened above, so this is DOM fallback
   if (!address) {
-    const addressEl =
-      document.querySelector('h1[data-testid*="address"], h1[data-testid*="Address"]') ||
-      document.querySelector('h1.address, h1[class*="address"]') ||
-      document.querySelector('[data-testid*="address"], [data-testid*="Address"]') ||
-      document.querySelector('.address, [class*="address"]') ||
-      document.querySelector('h1') ||
-      document.querySelector('[itemprop="streetAddress"]');
-    address = addressEl?.textContent?.trim() || "";
+    // Try itemprop microdata first (schema.org)
+    const streetAddress = document.querySelector('[itemprop="streetAddress"]')?.textContent?.trim();
+    const addressLocality = document.querySelector('[itemprop="addressLocality"]')?.textContent?.trim();
+    const addressRegion = document.querySelector('[itemprop="addressRegion"]')?.textContent?.trim();
+    const postalCode = document.querySelector('[itemprop="postalCode"]')?.textContent?.trim();
     
-    // Clean up address (remove common suffixes)
-    if (address) {
-      address = address.split('|')[0].split('-')[0].trim();
-      address = address.replace(/\s*MLS.*$/i, '').trim();
+    if (streetAddress) {
+      address = streetAddress;
+      if (addressLocality) city = addressLocality;
+      if (addressRegion) state = addressRegion;
+      if (postalCode) zip = postalCode;
+    }
+    
+    // Try common heading patterns
+    if (!address) {
+      const addressEl =
+        document.querySelector('h1[data-testid*="address"], h1[data-testid*="Address"]') ||
+        document.querySelector('h1.address, h1[class*="address"]') ||
+        document.querySelector('h2[data-testid*="address"], h2[data-testid*="Address"]') ||
+        document.querySelector('[data-testid*="address"], [data-testid*="Address"]') ||
+        document.querySelector('.address, [class*="address"]') ||
+        document.querySelector('[class*="property-address"]') ||
+        document.querySelector('[class*="listing-address"]') ||
+        document.querySelector('h1') ||
+        document.querySelector('h2');
+      const rawAddress = addressEl?.textContent?.trim() || "";
+      
+      // Clean up address (remove common suffixes and normalize whitespace)
+      if (rawAddress) {
+        address = rawAddress
+          .split('|')[0].split('-')[0].trim()
+          .replace(/\s*MLS.*$/i, '').trim()
+          .replace(/\s*for sale.*$/i, '').trim()
+          .replace(/\s*\$[\d,]+.*$/i, '').trim() // Remove price if in address
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .replace(/\n+/g, ' ') // Replace newlines with spaces
+          .trim();
+        
+        // Filter out generic/non-specific addresses
+        const genericPatterns = [
+          /^your\s+dream\s+property/i,
+          /^property\s+listing/i,
+          /^home\s+for\s+sale/i,
+          /^listing/i
+        ];
+        
+        if (genericPatterns.some(pattern => pattern.test(address))) {
+          address = ""; // Reject generic addresses
+        }
+      }
     }
   }
 
@@ -458,7 +772,7 @@ function fallbackDOM() {
     }
   }
 
-  // Extract bedrooms - try many common patterns
+  // Extract bedrooms - try many common patterns (IMPROVED)
   if (!bedrooms) {
     bedrooms =
       document.querySelector('[data-testid*="bed"], [data-testid*="Bed"]')?.textContent?.match(/(\d+)/)?.[1] ||
@@ -470,6 +784,45 @@ function fallbackDOM() {
     if (!bedrooms) {
       const bedMatch = document.body.textContent?.match(/(\d+)\s*bed(?:room)?s?/i);
       bedrooms = bedMatch?.[1] || "";
+    }
+    
+    // Validate and cross-check with meta description
+    if (bedrooms) {
+      const bedNum = parseInt(bedrooms);
+      // Validate it's reasonable (1-20 bedrooms)
+      if (bedNum < 1 || bedNum > 20) {
+        bedrooms = "";
+      } else {
+        // Cross-check with meta description if available
+        const ogDescription = document.querySelector('meta[property="og:description"]')?.content || "";
+        if (ogDescription) {
+          const metaBedMatch = ogDescription.match(/(\d+)\s+bed(?:room)?s?/i);
+          if (metaBedMatch) {
+            const metaBedNum = parseInt(metaBedMatch[1]);
+            // If meta description has different number and seems more reliable, use it
+            if (metaBedNum !== bedNum && metaBedNum >= 1 && metaBedNum <= 20) {
+              // Check if meta description is more detailed (contains more context)
+              if (ogDescription.includes('bed') && ogDescription.includes('bath')) {
+                console.log("[HomeQR] ⚠️ Bedroom count mismatch: DOM=" + bedNum + ", Meta=" + metaBedNum + ", using meta");
+                bedrooms = String(metaBedNum);
+              }
+            }
+          }
+        }
+      }
+    } else {
+      // Try meta description as fallback
+      const ogDescription = document.querySelector('meta[property="og:description"]')?.content || "";
+      if (ogDescription) {
+        const metaBedMatch = ogDescription.match(/(\d+)\s+bed(?:room)?s?/i);
+        if (metaBedMatch) {
+          const metaBedNum = parseInt(metaBedMatch[1]);
+          if (metaBedNum >= 1 && metaBedNum <= 20) {
+            bedrooms = String(metaBedNum);
+            console.log("[HomeQR] ✅ Bedrooms extracted from meta description:", bedrooms);
+          }
+        }
+      }
     }
   }
 
@@ -958,43 +1311,111 @@ function fallbackDOM() {
   
   // Helper: Get image URL from element (handles lazy loading)
   const getImageUrl = (img) => {
-    return img.src || 
-           img.getAttribute('data-src') || 
-           img.getAttribute('data-lazy-src') ||
-           img.getAttribute('data-original') ||
-           img.getAttribute('data-url') ||
-           img.getAttribute('srcset')?.split(',')[0]?.trim().split(' ')[0] ||
-           '';
+    // First check the img element itself
+    let url = img.src || 
+              img.getAttribute('data-src') || 
+              img.getAttribute('data-lazy-src') ||
+              img.getAttribute('data-original') ||
+              img.getAttribute('data-url') ||
+              img.getAttribute('srcset')?.split(',')[0]?.trim().split(' ')[0] ||
+              '';
+    
+    // If no good URL found, check parent elements for data-src (common in gallery sliders)
+    // This handles cases like UtahRealEstate.com where <li data-src="..."> contains <img>
+    if (!url || !url.startsWith('http')) {
+      let parent = img.parentElement;
+      let depth = 0;
+      while (parent && depth < 3) {
+        const parentDataSrc = parent.getAttribute('data-src');
+        if (parentDataSrc && parentDataSrc.startsWith('http')) {
+          url = parentDataSrc;
+          break;
+        }
+        parent = parent.parentElement;
+        depth++;
+      }
+    }
+    
+    return url;
   };
 
-  // Helper: Check if URL is a valid property image
+  // Helper: Check if URL is a valid property image (IMPROVED)
   const isValidImageUrl = (url) => {
     if (!url || typeof url !== 'string') return false;
     if (!url.startsWith('http')) return false;
     
-    // Filter out common non-property images
+    // Expanded blacklist for non-property images
     const blacklist = [
+      // Logos and branding
       '/logo', '/icon', '/avatar', '/agent', '/profile',
+      '-logo-', 'logo-default', 'homes-logo',
+      // Ads and tracking
       '/ad', '/advertisement', '/sponsored', '/banner',
       'facebook', 'twitter', 'instagram', 'youtube',
-      'google-analytics', 'pixel', 'tracking'
+      'google-analytics', 'pixel', 'tracking',
+      // Tracking pixels and ad networks
+      'teads.tv', 'ispot.tv', 'track?', 'tracking',
+      // App icons
+      '/app_icon/', '/app-icon/', 'NewAppIcon', 'app_icon.png',
+      'browserIcons', 'AppIcon',
+      // Spacer images
+      '/spacer/', 'spacer.gif', 'spacer.png',
+      // Map images
+      'staticmap', 'maps.google.com/maps/api/staticmap',
+      'maps.google.com', 'google.com/maps',
+      // SVG icons (usually not property photos)
+      '.svg'
     ];
     
     if (blacklist.some(pattern => url.toLowerCase().includes(pattern))) {
       return false;
     }
     
-    // Must be an image file
+    // Domain-based filtering for known tracking/ad domains
+    const trackingDomains = [
+      'teads.tv', 'ispot.tv', 'doubleclick.net', 'googlesyndication.com',
+      'facebook.com', 'twitter.com', 'linkedin.com'
+    ];
+    
+    const urlDomain = url.toLowerCase();
+    if (trackingDomains.some(domain => urlDomain.includes(domain))) {
+      return false;
+    }
+    
+    // Must be an image file (exclude SVG)
     if (!/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url)) {
       return false;
     }
     
     // Filter out very small images (likely icons)
+    // But allow images from known property photo domains even if size is small
+    const isPropertyPhotoDomain = url.includes('utahrealestate.com') || 
+                                  url.includes('zillowstatic.com') ||
+                                  url.includes('photos.zillowstatic.com') ||
+                                  url.includes('realtor.com') ||
+                                  url.includes('redfin.com') ||
+                                  url.includes('homes.com');
+    
     const sizeMatch = url.match(/(\d+)x(\d+)/);
     if (sizeMatch) {
       const w = parseInt(sizeMatch[1]);
       const h = parseInt(sizeMatch[2]);
-      if (w < 200 || h < 200) return false;
+      // For property photo domains, allow smaller sizes (they might have thumbnails)
+      // For other domains, be more strict
+      const minSize = isPropertyPhotoDomain ? 100 : 200;
+      if (w < minSize || h < minSize) return false;
+    }
+    
+    // Check for width/height parameters
+    const widthParam = url.match(/[?&_](?:w|width)=(\d+)/);
+    const heightParam = url.match(/[?&_](?:h|height)=(\d+)/);
+    if (widthParam) {
+      const w = parseInt(widthParam[1]);
+      if (w < 200) return false;
+    }
+    if (heightParam) {
+      const h = parseInt(heightParam[1]);
+      if (h < 200) return false;
     }
     
     return true;
@@ -1081,9 +1502,71 @@ function fallbackDOM() {
 
   // Strategy 4: Get all images from page (or from gallery if found)
   const root = galleryContainer || document.body;
+  
+  // First, try to get images from gallery items with data-src (like UtahRealEstate.com)
+  // Look for gallery items - prioritize within gallery container, but also check common gallery structures
+  const galleryItemSelectors = [
+    '#image-gallery [data-src]',
+    '#image-gallery-wrapper [data-src]',
+    '.lightSlider [data-src]',
+    '.lSSlide [data-src]',
+    '[id*="gallery"] [data-src]',
+    '[class*="gallery"] [data-src]',
+    '[class*="slider"] [data-src]',
+    '[class*="carousel"] [data-src]'
+  ];
+  
+  let galleryItems = [];
+  for (const selector of galleryItemSelectors) {
+    const found = document.querySelectorAll(selector);
+    if (found.length > 0) {
+      galleryItems = Array.from(found);
+      console.log(`[HomeQR] ✅ Found ${galleryItems.length} gallery items with selector: ${selector}`);
+      break;
+    }
+  }
+  
+  // If no gallery-specific items found, check root for any data-src elements
+  if (galleryItems.length === 0) {
+    galleryItems = Array.from(root.querySelectorAll('[data-src]'));
+  }
+  
+  const dataSrcImages = galleryItems
+    .map(item => {
+      const dataSrc = item.getAttribute('data-src');
+      if (dataSrc && isValidImageUrl(dataSrc)) {
+        return { url: dataSrc, score: getImageScore(dataSrc) };
+      }
+      return null;
+    })
+    .filter(Boolean)
+    // Sort by score and deduplicate
+    .reduce((acc, item) => {
+      const baseUrl = item.url.split('?')[0].split('#')[0];
+      const existing = acc.find(i => i.url.split('?')[0].split('#')[0] === baseUrl);
+      if (!existing || item.score > existing.score) {
+        if (existing) {
+          const index = acc.indexOf(existing);
+          acc[index] = item;
+        } else {
+          acc.push(item);
+        }
+      }
+      return acc;
+    }, [])
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.url);
+  
+  // Then get all img elements
   const allImgElements = Array.from(root.querySelectorAll('img'));
   
-  console.log(`[HomeQR] Found ${allImgElements.length} total images ${galleryContainer ? 'in gallery' : 'on page'}`);
+  console.log(`[HomeQR] Found ${galleryItems.length} gallery items with data-src, ${allImgElements.length} img elements ${galleryContainer ? 'in gallery' : 'on page'}`);
+  if (dataSrcImages.length > 0) {
+    console.log(`[HomeQR] ✅ Extracted ${dataSrcImages.length} images from data-src attributes`);
+    dataSrcImages.slice(0, 5).forEach((url, idx) => {
+      console.log(`[HomeQR]   data-src image ${idx + 1}:`, url.substring(0, 100));
+    });
+  }
   
   // Filter out images from unwanted sections (more aggressive for Zillow)
   const blacklistedSections = [
@@ -1155,8 +1638,8 @@ function fallbackDOM() {
     .slice(0, 30)
     .map(item => item.url);
 
-  // Combine all strategies
-  allImages = uniqueUrls([...allImages, ...extractedImages]).slice(0, 30);
+  // Combine all strategies (prioritize data-src images from gallery items)
+  allImages = uniqueUrls([...dataSrcImages, ...allImages, ...extractedImages]).slice(0, 30);
   
   console.log(`[HomeQR] After filtering: ${allImages.length} images`);
 

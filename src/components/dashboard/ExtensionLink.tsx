@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import ExtensionInstallModal from './ExtensionInstallModal';
 
 export default function ExtensionLink() {
   const [paymentStatus, setPaymentStatus] = useState<{
@@ -10,6 +11,7 @@ export default function ExtensionLink() {
     subscription?: { status: string; plan: string } | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     checkPaymentStatus();
@@ -30,27 +32,17 @@ export default function ExtensionLink() {
   };
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    
     if (!paymentStatus?.has_access) {
-      e.preventDefault();
       alert(
         'Extension access requires an active subscription. Please complete payment in the onboarding flow or contact support for beta access.'
       );
       return;
     }
     
-    // If has access, show download instructions
-    e.preventDefault();
-    const instructions = `To install the HomeQR Chrome Extension:
-
-1. Open Chrome and go to: chrome://extensions/
-2. Enable "Developer mode" (toggle in top-right)
-3. Click "Load unpacked"
-4. Navigate to the extension/ folder in your HomeQR project
-5. Select the folder
-
-The extension will appear in your extensions list. Pin it to your toolbar for easy access!`;
-    
-    alert(instructions);
+    // Open the installation modal
+    setIsModalOpen(true);
   };
 
   if (loading) {
@@ -80,16 +72,19 @@ The extension will appear in your extensions list. Pin it to your toolbar for ea
   }
 
   return (
-    <a
-      href="#"
-      onClick={handleClick}
-      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-      </svg>
-      Download Extension
-    </a>
+    <>
+      <a
+        href="#"
+        onClick={handleClick}
+        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Download Extension
+      </a>
+      <ExtensionInstallModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </>
   );
 }
 

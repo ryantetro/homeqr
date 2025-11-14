@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
-import Image from 'next/image';
+import ExtensionInstallModal from './ExtensionInstallModal';
 
 interface WelcomeScreenProps {
   onDismiss: () => void;
@@ -11,6 +11,7 @@ interface WelcomeScreenProps {
 
 export default function WelcomeScreen({ onDismiss }: WelcomeScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
 
   const handleDismiss = () => {
     setIsVisible(false);
@@ -67,18 +68,17 @@ export default function WelcomeScreen({ onDismiss }: WelcomeScreenProps) {
           
           <div className="flex flex-col gap-2">
             <p className="text-xs text-gray-600 mb-1">Or install the extension:</p>
-            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-              <p className="text-xs text-gray-700 font-medium mb-1">Chrome Extension</p>
-              <p className="text-xs text-gray-500">
-                1. Go to chrome://extensions/
-              </p>
-              <p className="text-xs text-gray-500">
-                2. Enable Developer mode
-              </p>
-              <p className="text-xs text-gray-500">
-                3. Load unpacked from extension/ folder
-              </p>
-            </div>
+            <Button
+              variant="outline"
+              size="md"
+              onClick={() => setIsExtensionModalOpen(true)}
+              className="w-full"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Install Chrome Extension
+            </Button>
           </div>
         </div>
 
@@ -91,6 +91,7 @@ export default function WelcomeScreen({ onDismiss }: WelcomeScreenProps) {
           </button>
         </div>
       </div>
+      <ExtensionInstallModal isOpen={isExtensionModalOpen} onClose={() => setIsExtensionModalOpen(false)} />
     </div>
   );
 }

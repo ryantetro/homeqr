@@ -90,47 +90,50 @@ async function loadGenerateTab() {
       return;
     }
 
-    // Check if we're on a supported site
-    const supportedSites = ['zillow.com', 'realtor.com', 'sondergrouputah.com'];
-    const isSupportedSite = supportedSites.some(site => tab.url?.includes(site));
-
-    // Try to get listing info from content script (only works on supported sites)
-    if (isSupportedSite) {
-      // First, try to inject the content script if it's not already there
-      // This ensures it runs even if the page was loaded before the extension
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content.js']
-      }).catch(() => {
-        // Script might already be injected, that's okay
-      }).then(() => {
-        // Wait a moment for script to initialize, then request data
-        setTimeout(() => {
-          chrome.tabs.sendMessage(tab.id, { type: 'GET_LISTING_INFO' }, (response) => {
-            if (chrome.runtime.lastError) {
-              // Content script might not be ready, try again
-              setTimeout(() => {
-                chrome.tabs.sendMessage(tab.id, { type: 'GET_LISTING_INFO' }, (response) => {
-                  handleListingResponse(response, tab.url);
-                });
-              }, 500);
-              return;
-            }
-            handleListingResponse(response, tab.url);
-          });
-        }, 100);
-      });
-    } else {
-      // Not a supported site - show manual form
+    // Always try automatic extraction first
+    // The content script's fallbackDOM() works on any MLS site
+    // First, try to inject the content script if it's not already there
+    // This ensures it runs even if the page was loaded before the extension
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['content.js']
+    }).catch(() => {
+      // Script might already be injected, that's okay
+    }).then(() => {
+      // Wait a moment for script to initialize, then request data
+      setTimeout(() => {
+        chrome.tabs.sendMessage(tab.id, { type: 'GET_LISTING_INFO' }, (response) => {
+          if (chrome.runtime.lastError) {
+            // Content script might not be ready, try again
+            setTimeout(() => {
+              chrome.tabs.sendMessage(tab.id, { type: 'GET_LISTING_INFO' }, (response) => {
+                handleListingResponse(response, tab.url);
+              });
+            }, 500);
+            return;
+          }
+          handleListingResponse(response, tab.url);
+        });
+      }, 100);
+    }).catch((error) => {
+      // If extraction fails, show manual form
+      console.error('Error attempting automatic extraction:', error);
       showManualForm(tab.url);
-    }
+    });
   } catch (error) {
     console.error('Error loading generate tab:', error);
-    generateContent.innerHTML = `
-      <div class="status-message status-error">
-        <span>Error loading listing information. Please try again.</span>
-      </div>
-    `;
+    // If automatic extraction fails, show manual form as fallback
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
+    if (tab) {
+      showManualForm(tab.url);
+    } else {
+      generateContent.innerHTML = `
+        <div class="status-message status-error">
+          <span>Error loading listing information. Please try again.</span>
+        </div>
+      `;
+    }
   }
 }
 
@@ -143,12 +146,27 @@ function handleListingResponse(response, url) {
     return;
   }
 
-  // Check if we got useful data
-  if (response.address || response.title) {
+  // Validate extracted data - check if we got useful listing information
+  const hasValidAddress = response.address && 
+                          response.address.trim() !== '' && 
+                          response.address !== 'Property Listing';
+  
+  const hasUsefulData = hasValidAddress || 
+                        (response.title && response.title.trim() !== '');
+  
+  // Check if extraction likely failed (only URL/title, no property details)
+  const hasPropertyDetails = response.price || 
+                             response.bedrooms || 
+                             response.bathrooms || 
+                             response.squareFeet || 
+                             (response.imageUrls && response.imageUrls.length > 0);
+  
+  if (hasValidAddress || (hasUsefulData && hasPropertyDetails)) {
+    // We have valid extracted data - use it
     currentListing = response;
     displayListingInfo(response);
   } else {
-    // No useful data extracted - show manual form with URL pre-filled
+    // Extraction failed or returned incomplete data - show manual form with any extracted data pre-filled
     showManualForm(url, response);
   }
 }

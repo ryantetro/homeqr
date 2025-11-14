@@ -7,6 +7,10 @@
   "host_permissions": [
     "*://*.zillow.com/*",
     "*://*.realtor.com/*",
+    "*://*.redfin.com/*",
+    "*://*.trulia.com/*",
+    "*://*.homes.com/*",
+    "*://*.mls.com/*",
     "*://*.sondergrouputah.com/*",
     "http://localhost:3000/*",
     "https://homeqr.app/*"

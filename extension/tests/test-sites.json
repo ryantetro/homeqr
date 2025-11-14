@@ -1,0 +1,47 @@
+{
+  "sites": [
+    {
+      "name": "Zillow",
+      "url": "https://www.zillow.com/homedetails/",
+      "expectedFields": ["address", "price", "bedrooms", "bathrooms", "squareFeet", "images"],
+      "notes": "Baseline test - should work with JSON cache extraction",
+      "priority": "high"
+    },
+    {
+      "name": "Realtor.com",
+      "url": "https://www.realtor.com/realestateandhomes-detail/",
+      "expectedFields": ["address", "price", "bedrooms", "bathrooms", "squareFeet"],
+      "notes": "Test generic extraction - uses structured data",
+      "priority": "high"
+    },
+    {
+      "name": "Redfin",
+      "url": "https://www.redfin.com/",
+      "expectedFields": ["address", "price", "bedrooms", "bathrooms", "squareFeet"],
+      "notes": "Test generic extraction",
+      "priority": "high"
+    },
+    {
+      "name": "Trulia",
+      "url": "https://www.trulia.com/",
+      "expectedFields": ["address", "price", "bedrooms", "bathrooms"],
+      "notes": "Test generic extraction",
+      "priority": "medium"
+    },
+    {
+      "name": "Homes.com",
+      "url": "https://www.homes.com/",
+      "expectedFields": ["address", "price", "bedrooms", "bathrooms"],
+      "notes": "Test generic extraction",
+      "priority": "medium"
+    },
+    {
+      "name": "MLS Portal (Generic)",
+      "url": "https://www.mls.com/",
+      "expectedFields": ["address", "price"],
+      "notes": "Test generic extraction on MLS portals",
+      "priority": "medium"
+    }
+  ]
+}
+

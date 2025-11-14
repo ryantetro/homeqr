@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Button from '@/components/ui/Button';
+import ExtensionInstallModal from '@/components/dashboard/ExtensionInstallModal';
 
 interface PaymentPlaceholderFormProps {
   onPaymentComplete?: () => void;
 }
 
 export default function PaymentPlaceholderForm({ onPaymentComplete }: PaymentPlaceholderFormProps) {
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<{
     has_paid: boolean;
@@ -95,26 +97,20 @@ export default function PaymentPlaceholderForm({ onPaymentComplete }: PaymentPla
 
         <div className="space-y-3">
           <h3 className="font-semibold text-gray-900">Download Extension</h3>
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800 font-medium mb-3">
-              Quick Setup Instructions:
-            </p>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-              <li>Open Chrome and go to <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">chrome://extensions/</code></li>
-              <li>Enable <strong>Developer mode</strong> (toggle in top-right corner)</li>
-              <li>Click <strong>Load unpacked</strong> button</li>
-              <li>Navigate to the <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">extension/</code> folder in your HomeQR project</li>
-              <li>Select the folder and click <strong>Select Folder</strong></li>
-            </ol>
-            <p className="text-xs text-gray-600 mt-3 pt-3 border-t border-blue-200">
-              <strong>Tip:</strong> Pin the extension to your toolbar for easy access when browsing property listings!
-            </p>
-          </div>
-          <div className="p-3 bg-white border border-gray-200 rounded-lg">
-            <p className="text-xs text-gray-600">
-              <strong>Note:</strong> The extension files are located in the <code className="bg-gray-100 px-1.5 py-0.5 rounded text-xs font-mono">extension/</code> folder of your HomeQR project directory.
-            </p>
-          </div>
+          <Button
+            variant="primary"
+            size="md"
+            onClick={() => setIsExtensionModalOpen(true)}
+            className="w-full"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Install Chrome Extension
+          </Button>
+          <p className="text-xs text-gray-500 text-center">
+            Click the button above to see installation instructions
+          </p>
         </div>
       </div>
     );
@@ -203,6 +199,7 @@ export default function PaymentPlaceholderForm({ onPaymentComplete }: PaymentPla
           {loading ? 'Processing...' : 'Continue to Payment (Stripe Checkout)'}
         </Button>
       </div>
+      <ExtensionInstallModal isOpen={isExtensionModalOpen} onClose={() => setIsExtensionModalOpen(false)} />
     </div>
   );
 }

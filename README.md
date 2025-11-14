@@ -91,6 +91,10 @@ Required variables:
   - **Development**: `http://localhost:3000` (or your local IP like `http://192.168.1.44:3000`)
   - **Production**: Your actual domain (e.g., `https://homeqr.app`)
   - **Important**: This is used as a fallback when generating QR codes. The app will automatically use the request host when available to ensure cookies work correctly across different domains.
+- `NEXT_PUBLIC_CHROME_WEB_STORE_URL` - (Optional) Chrome Web Store URL for the extension
+  - **Production**: Your Chrome Web Store listing URL (e.g., `https://chrome.google.com/webstore/detail/homeqr/...`)
+  - **Development**: Leave unset to show manual installation instructions
+  - When set, users will see a one-click install button from the Chrome Web Store
 
 3. **Set up Supabase database:**
 

@@ -104,17 +104,34 @@ export default async function ListingsPage() {
                     if (!url || typeof url !== 'string') return false;
                     // Filter out listing page URLs
                     if (url.includes('/homedetails/') || url.includes('/homes/')) return false;
-                    // Must be an actual image URL from Zillow's CDN
-                    return url.includes('zillowstatic.com') || url.includes('photos.zillowstatic.com');
+                    // Must be a valid image URL (check for image extension and known property photo domains)
+                    const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+                    const isPropertyPhotoDomain = url.includes('zillowstatic.com') || 
+                                                  url.includes('photos.zillowstatic.com') ||
+                                                  url.includes('utahrealestate.com') ||
+                                                  url.includes('realtor.com') ||
+                                                  url.includes('redfin.com') ||
+                                                  url.includes('homes.com') ||
+                                                  url.includes('trulia.com');
+                    return isImageFile && (isPropertyPhotoDomain || url.startsWith('http'));
                   });
                   if (validImages.length > 0) {
                     firstImage = validImages[0];
                   }
                 } else if (typeof parsed === 'string') {
                   // Single URL - check if it's valid
+                  const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(parsed);
+                  const isPropertyPhotoDomain = parsed.includes('zillowstatic.com') || 
+                                                parsed.includes('photos.zillowstatic.com') ||
+                                                parsed.includes('utahrealestate.com') ||
+                                                parsed.includes('realtor.com') ||
+                                                parsed.includes('redfin.com') ||
+                                                parsed.includes('homes.com') ||
+                                                parsed.includes('trulia.com');
                   if (!parsed.includes('/homedetails/') && 
                       !parsed.includes('/homes/') &&
-                      (parsed.includes('zillowstatic.com') || parsed.includes('photos.zillowstatic.com'))) {
+                      isImageFile &&
+                      (isPropertyPhotoDomain || parsed.startsWith('http'))) {
                     firstImage = parsed;
                   }
                 }
@@ -122,15 +139,25 @@ export default async function ListingsPage() {
             } catch {
               // If not JSON, treat as single image URL
               if (listing.image_url && 
-                  typeof listing.image_url === 'string' &&
-                  !listing.image_url.includes('/homedetails/') && 
-                  !listing.image_url.includes('/homes/') &&
-                  (listing.image_url.includes('zillowstatic.com') || listing.image_url.includes('photos.zillowstatic.com'))) {
-                firstImage = listing.image_url;
+                  typeof listing.image_url === 'string') {
+                const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(listing.image_url);
+                const isPropertyPhotoDomain = listing.image_url.includes('zillowstatic.com') || 
+                                              listing.image_url.includes('photos.zillowstatic.com') ||
+                                              listing.image_url.includes('utahrealestate.com') ||
+                                              listing.image_url.includes('realtor.com') ||
+                                              listing.image_url.includes('redfin.com') ||
+                                              listing.image_url.includes('homes.com') ||
+                                              listing.image_url.includes('trulia.com');
+                if (!listing.image_url.includes('/homedetails/') && 
+                    !listing.image_url.includes('/homes/') &&
+                    isImageFile &&
+                    (isPropertyPhotoDomain || listing.image_url.startsWith('http'))) {
+                  firstImage = listing.image_url;
+                }
               }
             }
 
-            // Get proxied image URL if it's a Zillow CDN image
+            // Get proxied image URL if it's a CDN image that needs proxying
             const getProxiedImageUrl = (url: string): string => {
               if (!url) return url;
               
@@ -139,6 +166,7 @@ export default async function ListingsPage() {
                 return url;
               }
               
+              // Proxy Zillow CDN images
               const isZillowImageCDN = (url.includes('zillowstatic.com') || 
                                        url.includes('photos.zillowstatic.com')) &&
                                       (url.includes('/photo/') || 
@@ -150,6 +178,8 @@ export default async function ListingsPage() {
               if (isZillowImageCDN) {
                 return `/api/image-proxy?url=${encodeURIComponent(url)}`;
               }
+              
+              // For other domains, return as-is (they should work directly)
               return url;
             };
 

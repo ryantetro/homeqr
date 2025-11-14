@@ -123,22 +123,51 @@ export default async function PublicListingPage({
           if (url.includes('/homedetails/') || url.includes('/homes/') || url.includes('/alpine-ut/')) {
             return false;
           }
-          return url.includes('zillowstatic.com') || url.includes('photos.zillowstatic.com');
+          // Allow images from known property photo domains or any valid image URL
+          const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+          const isPropertyPhotoDomain = url.includes('zillowstatic.com') || 
+                                        url.includes('photos.zillowstatic.com') ||
+                                        url.includes('utahrealestate.com') ||
+                                        url.includes('realtor.com') ||
+                                        url.includes('redfin.com') ||
+                                        url.includes('homes.com') ||
+                                        url.includes('trulia.com');
+          return isImageFile && (isPropertyPhotoDomain || url.startsWith('http'));
         });
-      } else if (typeof parsed === 'string' && 
-                 !parsed.includes('/homedetails/') && 
-                 !parsed.includes('/homes/') &&
-                 (parsed.includes('zillowstatic.com') || parsed.includes('photos.zillowstatic.com'))) {
-        allImages = [parsed];
+      } else if (typeof parsed === 'string') {
+        const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(parsed);
+        const isPropertyPhotoDomain = parsed.includes('zillowstatic.com') || 
+                                      parsed.includes('photos.zillowstatic.com') ||
+                                      parsed.includes('utahrealestate.com') ||
+                                      parsed.includes('realtor.com') ||
+                                      parsed.includes('redfin.com') ||
+                                      parsed.includes('homes.com') ||
+                                      parsed.includes('trulia.com');
+        if (!parsed.includes('/homedetails/') && 
+            !parsed.includes('/homes/') &&
+            isImageFile &&
+            (isPropertyPhotoDomain || parsed.startsWith('http'))) {
+          allImages = [parsed];
+        }
       }
     }
   } catch {
     if (listing.image_url && 
-        typeof listing.image_url === 'string' &&
-        !listing.image_url.includes('/homedetails/') && 
-        !listing.image_url.includes('/homes/') &&
-        (listing.image_url.includes('zillowstatic.com') || listing.image_url.includes('photos.zillowstatic.com'))) {
-      allImages = [listing.image_url];
+        typeof listing.image_url === 'string') {
+      const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(listing.image_url);
+      const isPropertyPhotoDomain = listing.image_url.includes('zillowstatic.com') || 
+                                    listing.image_url.includes('photos.zillowstatic.com') ||
+                                    listing.image_url.includes('utahrealestate.com') ||
+                                    listing.image_url.includes('realtor.com') ||
+                                    listing.image_url.includes('redfin.com') ||
+                                    listing.image_url.includes('homes.com') ||
+                                    listing.image_url.includes('trulia.com');
+      if (!listing.image_url.includes('/homedetails/') && 
+          !listing.image_url.includes('/homes/') &&
+          isImageFile &&
+          (isPropertyPhotoDomain || listing.image_url.startsWith('http'))) {
+        allImages = [listing.image_url];
+      }
     }
   }
 

@@ -66,7 +66,8 @@ The extension should now appear in your extensions list.
 ## Troubleshooting
 
 ### Extension shows "Not a valid listing page"
-- Make sure you're on a supported site (Zillow, Realtor.com, or Sonder Group)
+- The extension automatically attempts to extract listing data from any MLS site
+- If extraction fails, you can manually enter the listing details
 - The content script may not have loaded. Try refreshing the page
 
 ### "Please sign in to HomeQR first" error
@@ -103,14 +104,16 @@ The extension should now appear in your extensions list.
 
 ### Test on Different Sites
 
-The extension currently supports:
+The extension automatically attempts to extract listing data from any MLS listing site, including:
 - Zillow (`zillow.com`)
 - Realtor.com (`realtor.com`)
-- Sonder Group (`sondergrouputah.com`)
+- Redfin (`redfin.com`)
+- Homes.com (`homes.com`)
+- Trulia (`trulia.com`)
+- UtahRealEstate.com (`utahrealestate.com`)
+- And many other MLS sites
 
-To add more sites, update:
-1. `manifest.json` → `host_permissions` and `content_scripts.matches`
-2. `extension/content.js` → `detectListing()` function
+The extension uses generic extraction methods (JSON-LD, meta tags, DOM selectors) that work across most MLS sites. If automatic extraction fails on a particular site, you can manually enter the listing details.
 
 ## Production Deployment
 
