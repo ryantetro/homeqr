@@ -14,12 +14,11 @@ interface TrialOnboardingModalProps {
   onDismiss: () => void;
 }
 
-export default function TrialOnboardingModal({ onComplete, onDismiss }: TrialOnboardingModalProps) {
+export default function TrialOnboardingModal({ onDismiss }: TrialOnboardingModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'pro'>('pro');
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [selectedPlan, setSelectedPlan] = useState<'starter-monthly' | 'pro-monthly' | 'pro-annual'>('pro-monthly');
   const supabase = createClient();
 
   const [formData, setFormData] = useState({
@@ -111,7 +110,7 @@ export default function TrialOnboardingModal({ onComplete, onDismiss }: TrialOnb
 
           if (updateError) throw updateError;
         }
-      } catch (err) {
+      } catch {
         setError('Failed to save profile');
         return;
       } finally {
@@ -130,12 +129,15 @@ export default function TrialOnboardingModal({ onComplete, onDismiss }: TrialOnb
     setError(null);
 
     try {
+      // Parse selected plan
+      const [plan, billing] = selectedPlan.split('-') as ['starter' | 'pro', 'monthly' | 'annual'];
+      
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          plan: selectedPlan,
-          billing: billingCycle,
+          plan,
+          billing,
         }),
       });
 
@@ -291,51 +293,24 @@ export default function TrialOnboardingModal({ onComplete, onDismiss }: TrialOnb
                 </p>
               </div>
 
-              {/* Billing Toggle */}
-              <div className="flex items-center justify-center gap-4">
-                <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-gray-900' : 'text-gray-500'}`}>
-                  Monthly
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'annual' : 'monthly')}
-                  className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      billingCycle === 'annual' ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-                <span className={`text-sm font-medium ${billingCycle === 'annual' ? 'text-gray-900' : 'text-gray-500'}`}>
-                  Annual
-                </span>
-                {billingCycle === 'annual' && (
-                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-semibold">
-                    Save 25%
-                  </span>
-                )}
-              </div>
-
-              {/* Pricing Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Pricing Cards - 3 Options */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Monthly Starter */}
                 <Card
                   className={`cursor-pointer transition-all ${
-                    selectedPlan === 'starter'
+                    selectedPlan === 'starter-monthly'
                       ? 'ring-2 ring-blue-500 border-blue-500'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
-                  onClick={() => setSelectedPlan('starter')}
+                  onClick={() => setSelectedPlan('starter-monthly')}
                 >
                   <div className="p-6">
                     <h4 className="text-xl font-bold text-gray-900 mb-2">Starter</h4>
                     <div className="mb-4">
                       <span className="text-3xl font-bold text-gray-900">
-                        ${billingCycle === 'monthly' ? PLAN_PRICES.starter.monthly : PLAN_PRICES.starter.annual}
+                        ${PLAN_PRICES.starter.monthly}
                       </span>
-                      <span className="text-gray-600">
-                        /{billingCycle === 'monthly' ? 'mo' : 'yr'}
-                      </span>
+                      <span className="text-gray-600">/mo</span>
                     </div>
                     <ul className="space-y-2 text-sm text-gray-600 mb-4">
                       <li className="flex items-center gap-2">
@@ -360,13 +335,14 @@ export default function TrialOnboardingModal({ onComplete, onDismiss }: TrialOnb
                   </div>
                 </Card>
 
+                {/* Monthly Pro - Default */}
                 <Card
                   className={`cursor-pointer transition-all relative ${
-                    selectedPlan === 'pro'
+                    selectedPlan === 'pro-monthly'
                       ? 'ring-2 ring-blue-500 border-blue-500'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
-                  onClick={() => setSelectedPlan('pro')}
+                  onClick={() => setSelectedPlan('pro-monthly')}
                 >
                   <div className="absolute top-4 right-4">
                     <span className="bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
@@ -377,11 +353,9 @@ export default function TrialOnboardingModal({ onComplete, onDismiss }: TrialOnb
                     <h4 className="text-xl font-bold text-gray-900 mb-2">Pro</h4>
                     <div className="mb-4">
                       <span className="text-3xl font-bold text-gray-900">
-                        ${billingCycle === 'monthly' ? PLAN_PRICES.pro.monthly : PLAN_PRICES.pro.annual}
+                        ${PLAN_PRICES.pro.monthly}
                       </span>
-                      <span className="text-gray-600">
-                        /{billingCycle === 'monthly' ? 'mo' : 'yr'}
-                      </span>
+                      <span className="text-gray-600">/mo</span>
                     </div>
                     <ul className="space-y-2 text-sm text-gray-600 mb-4">
                       <li className="flex items-center gap-2">
@@ -395,6 +369,54 @@ export default function TrialOnboardingModal({ onComplete, onDismiss }: TrialOnb
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                         Advanced analytics
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Priority support
+                      </li>
+                    </ul>
+                  </div>
+                </Card>
+
+                {/* Annual Pro */}
+                <Card
+                  className={`cursor-pointer transition-all relative ${
+                    selectedPlan === 'pro-annual'
+                      ? 'ring-2 ring-blue-500 border-blue-500'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedPlan('pro-annual')}
+                >
+                  <div className="absolute top-4 right-4">
+                    <span className="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
+                      Save 25%
+                    </span>
+                  </div>
+                  <div className="p-6">
+                    <h4 className="text-xl font-bold text-gray-900 mb-2">Pro Annual</h4>
+                    <div className="mb-4">
+                      <span className="text-3xl font-bold text-gray-900">
+                        ${PLAN_PRICES.pro.annual}
+                      </span>
+                      <span className="text-gray-600">/yr</span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        ${Math.round(PLAN_PRICES.pro.annual / 12)}/mo billed annually
+                      </p>
+                    </div>
+                    <ul className="space-y-2 text-sm text-gray-600 mb-4">
+                      <li className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Everything in Pro
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Best value
                       </li>
                       <li className="flex items-center gap-2">
                         <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

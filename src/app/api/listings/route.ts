@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { generateUniqueSlug } from '@/lib/utils/slug';
+import { checkUserAccess } from '@/lib/subscription/access';
+import { checkTrialLimit } from '@/lib/subscription/limits';
 
 export async function GET(request: NextRequest) {
   try {
@@ -91,6 +93,31 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check access
+    const access = await checkUserAccess(user.id);
+    if (!access.hasAccess) {
+      console.log(`[Access Denied] User ${user.id} attempted to create listing. Reason: ${access.reason}`);
+      return NextResponse.json(
+        { error: 'Subscription required. Please upgrade to create listings.' },
+        { status: 403 }
+      );
+    }
+
+    // Check trial limits if user is in trial
+    if (access.reason === 'trial') {
+      const limitCheck = await checkTrialLimit(user.id, 'listings');
+      if (!limitCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: `Trial limit reached. You've created ${limitCheck.current}/${limitCheck.limit} listings. Upgrade to create unlimited listings.`,
+            limit: limitCheck.limit,
+            current: limitCheck.current,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const body = await request.json();
@@ -249,6 +276,16 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check access
+    const access = await checkUserAccess(user.id);
+    if (!access.hasAccess) {
+      console.log(`[Access Denied] User ${user.id} attempted to update listing. Reason: ${access.reason}`);
+      return NextResponse.json(
+        { error: 'Subscription required. Please upgrade to update listings.' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { id, ...updates } = body;
 
@@ -325,6 +362,16 @@ export async function DELETE(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check access
+    const access = await checkUserAccess(user.id);
+    if (!access.hasAccess) {
+      console.log(`[Access Denied] User ${user.id} attempted to delete listing. Reason: ${access.reason}`);
+      return NextResponse.json(
+        { error: 'Subscription required. Please upgrade to manage listings.' },
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);

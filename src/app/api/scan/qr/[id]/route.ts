@@ -43,6 +43,8 @@ export async function GET(
     const deviceType = getDeviceType(userAgent);
     const timeOfDay = new Date().getHours();
     const sessionId = getSessionId(request);
+    
+    console.log('[QR Scan] Session ID:', sessionId);
 
     // Get listing to check for slug
     const { data: listing, error: listingError } = await supabase
@@ -53,7 +55,11 @@ export async function GET(
     
     if (listingError || !listing) {
       console.error('[QR Scan] Listing not found:', listingId, listingError);
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+      // Use request host for 404 redirect too
+      const requestUrl = new URL(request.url);
+      const host = request.headers.get('host') || requestUrl.host;
+      const protocol = requestUrl.protocol || 'http:';
+      const siteUrl = host ? `${protocol}//${host}` : (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
       return NextResponse.redirect(`${siteUrl}/404`);
     }
     
@@ -69,6 +75,7 @@ export async function GET(
 
     if (existingSession) {
       // Update existing session
+      // IMPORTANT: If this is a QR scan, ensure source is set to 'qr'
       const { error: updateError } = await supabase
         .from('scan_sessions')
         .update({
@@ -77,13 +84,14 @@ export async function GET(
           device_type: deviceType,
           time_of_day: timeOfDay,
           referrer: referrer,
+          source: 'qr', // Always set to 'qr' when QR scan happens
         })
         .eq('id', existingSession.id);
       
       if (updateError) {
         console.error('[QR Scan] Failed to update scan session:', updateError);
       } else {
-        console.log('[QR Scan] Updated existing scan session:', existingSession.id);
+        console.log('[QR Scan] Updated existing scan session:', existingSession.id, 'source set to: qr');
       }
     } else {
       // Insert new session - use upsert to prevent duplicate key errors
@@ -103,23 +111,71 @@ export async function GET(
         });
       
       if (insertError) {
-        // If still fails, try to update (race condition)
-        const { error: retryError } = await supabase
-          .from('scan_sessions')
-          .update({
-            scan_count: 1,
-            last_scan_at: new Date().toISOString(),
-            device_type: deviceType,
-            time_of_day: timeOfDay,
-            referrer: referrer,
-          })
-          .eq('listing_id', listingId)
-          .eq('session_id', sessionId);
-        
-        if (retryError) {
-          console.error('[QR Scan] Failed to insert/update scan session:', insertError, retryError);
+        // Check if error is duplicate key (session already exists for this listing+session combo)
+        if (insertError.code === '23505' || insertError.message?.includes('duplicate key')) {
+          // Session already exists, fetch and update it
+          const { data: existingRetrySession, error: retryFetchError } = await supabase
+            .from('scan_sessions')
+            .select('id, scan_count, source')
+            .eq('listing_id', listingId)
+            .eq('session_id', sessionId)
+            .maybeSingle();
+          
+          if (existingRetrySession) {
+            // Update existing session
+            // IMPORTANT: If this is a QR scan, ensure source is set to 'qr'
+            const { error: retryUpdateError } = await supabase
+              .from('scan_sessions')
+              .update({
+                scan_count: (existingRetrySession.scan_count || 0) + 1,
+                last_scan_at: new Date().toISOString(),
+                device_type: deviceType,
+                time_of_day: timeOfDay,
+                referrer: referrer,
+                source: 'qr', // Always set to 'qr' when QR scan happens
+              })
+              .eq('id', existingRetrySession.id);
+            
+            if (retryUpdateError) {
+              console.error('[QR Scan] Failed to update existing scan session:', retryUpdateError);
+            } else {
+              console.log('[QR Scan] Updated existing scan session (duplicate key):', existingRetrySession.id, 'source:', existingRetrySession.source || 'qr');
+            }
+          } else {
+            console.error('[QR Scan] Duplicate key error but session not found:', retryFetchError);
+          }
         } else {
-          console.log('[QR Scan] Created/updated scan session via retry');
+          // Other error, try to check if session exists
+          const { data: retrySession, error: retryCheckError } = await supabase
+            .from('scan_sessions')
+            .select('id, scan_count, source')
+            .eq('listing_id', listingId)
+            .eq('session_id', sessionId)
+            .maybeSingle();
+          
+          if (retrySession) {
+            // Session exists, update it
+            // IMPORTANT: If this is a QR scan, ensure source is set to 'qr'
+            const { error: retryUpdateError } = await supabase
+              .from('scan_sessions')
+              .update({
+                scan_count: (retrySession.scan_count || 0) + 1,
+                last_scan_at: new Date().toISOString(),
+                device_type: deviceType,
+                time_of_day: timeOfDay,
+                referrer: referrer,
+                source: 'qr', // Always set to 'qr' when QR scan happens
+              })
+              .eq('id', retrySession.id);
+            
+            if (retryUpdateError) {
+              console.error('[QR Scan] Failed to update scan session via retry:', retryUpdateError);
+            } else {
+              console.log('[QR Scan] Updated existing scan session via retry:', retrySession.id);
+            }
+          } else {
+            console.error('[QR Scan] Failed to create scan session and session not found:', insertError);
+          }
         }
       } else {
         console.log('[QR Scan] Created new scan session for listing:', listingId);
@@ -284,25 +340,48 @@ export async function GET(
     }
 
     // Set session cookie and redirect
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    // Use request host to ensure cookie domain matches redirect domain
+    const requestUrl = new URL(request.url);
+    const host = request.headers.get('host') || requestUrl.host;
+    const protocol = requestUrl.protocol || 'http:';
+    const baseUrl = `${protocol}//${host}`;
+    
+    // Fall back to NEXT_PUBLIC_SITE_URL if host is not available
+    const siteUrl = baseUrl || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
     const redirectUrl = listing?.slug 
       ? `${siteUrl}/${listing.slug}`
       : `${siteUrl}/listing/${listingId}`;
     
+    console.log('[QR Scan] Request host:', host);
     console.log('[QR Scan] Redirecting to:', redirectUrl);
     console.log('[QR Scan] ===== SCAN TRACKING COMPLETE =====');
     
     const response = NextResponse.redirect(redirectUrl);
+    
+    // Set cookie with improved settings
+    const isProduction = process.env.NODE_ENV === 'production';
     response.cookies.set('homeqr_session', sessionId, {
       maxAge: 60 * 60 * 24 * 30, // 30 days
+      path: '/',
       httpOnly: true,
       sameSite: 'lax',
+      secure: isProduction, // Only use secure cookies in production (HTTPS)
     });
     return response;
   } catch (error: unknown) {
     console.error('Scan tracking error:', error);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    return NextResponse.redirect(`${siteUrl}/404`);
+    // Use request host for error redirect too
+    try {
+      const requestUrl = new URL(request.url);
+      const host = request.headers.get('host') || requestUrl.host;
+      const protocol = requestUrl.protocol || 'http:';
+      const siteUrl = host ? `${protocol}//${host}` : (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000');
+      return NextResponse.redirect(`${siteUrl}/404`);
+    } catch {
+      // Fallback if URL parsing fails
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+      return NextResponse.redirect(`${siteUrl}/404`);
+    }
   }
 }
 

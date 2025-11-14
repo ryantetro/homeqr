@@ -562,6 +562,72 @@ body {
   margin-bottom: 8px;
 }
 
+/* Usage Stats Display */
+.usage-stats {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.usage-stats-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.usage-stat-item {
+  margin-bottom: 6px;
+}
+
+.usage-stat-item:last-child {
+  margin-bottom: 0;
+}
+
+.usage-progress {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.usage-progress > div {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+/* Subscription Error */
+.subscription-error {
+  margin-bottom: 12px;
+}
+
+.subscription-error-content {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.subscription-error-content .btn-primary {
+  background: #dc2626;
+  color: white;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 8px;
+  transition: background 0.2s;
+}
+
+.subscription-error-content .btn-primary:hover {
+  background: #b91c1c;
+}
+
 /* Responsive */
 @media (max-width: 400px) {
   body {

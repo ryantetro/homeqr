@@ -5,6 +5,7 @@ import { formatCurrency } from '@/lib/utils/format';
 import { calculateConversionRate } from '@/lib/utils/analytics';
 import Card from '@/components/ui/Card';
 import ListingCardImage from '@/components/listings/ListingCardImage';
+import { checkUserAccess } from '@/lib/subscription/access';
 
 export default async function ListingsPage() {
   const supabase = await createClient();
@@ -15,6 +16,10 @@ export default async function ListingsPage() {
   if (!user) {
     return null;
   }
+
+  // Check access and subscription status
+  const access = await checkUserAccess(user.id);
+  const isExpired = !access.hasAccess && access.reason !== 'beta';
 
   const { data: listings } = await supabase
     .from('listings')
@@ -61,14 +66,32 @@ export default async function ListingsPage() {
             Manage QR codes and track performance
           </p>
         </div>
-        <Link href="/dashboard/listings/new">
-          <Button variant="outline" size="sm">Add Property</Button>
-        </Link>
+        {isExpired ? (
+          <div className="text-right">
+            <p className="text-sm text-gray-600 mb-2">Trial expired</p>
+            <Link href="/dashboard/billing">
+              <Button variant="primary" size="sm">Upgrade to Add Properties</Button>
+            </Link>
+          </div>
+        ) : (
+          <Link href="/dashboard/listings/new">
+            <Button variant="outline" size="sm">Add Property</Button>
+          </Link>
+        )}
       </div>
 
       {listings && listings.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {listings.map((listing: any) => {
+          {listings.map((listing: {
+            id: string;
+            address: string;
+            city: string | null;
+            state: string | null;
+            price: number | null;
+            image_url: string | null;
+            created_at: string;
+            qrcodes: Array<{ id: string; scan_count: number | null }> | null;
+          }) => {
             // Parse images - check if image_url is a JSON array or single URL
             let firstImage: string | null = null;
             try {

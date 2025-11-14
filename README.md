@@ -87,7 +87,10 @@ Required variables:
 - `STRIPE_SECRET_KEY` - Your Stripe secret key
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Your Stripe publishable key
 - `STRIPE_WEBHOOK_SECRET` - Your Stripe webhook secret
-- `NEXT_PUBLIC_SITE_URL` - Your site URL (e.g., http://localhost:3000)
+- `NEXT_PUBLIC_SITE_URL` - Your site URL
+  - **Development**: `http://localhost:3000` (or your local IP like `http://192.168.1.44:3000`)
+  - **Production**: Your actual domain (e.g., `https://homeqr.app`)
+  - **Important**: This is used as a fallback when generating QR codes. The app will automatically use the request host when available to ensure cookies work correctly across different domains.
 
 3. **Set up Supabase database:**
 
@@ -169,6 +172,11 @@ See `supabase/schema.sql` for the complete schema with RLS policies.
 ### Environment Variables for Production
 
 Make sure to set all required environment variables in your deployment platform.
+
+**Critical for Production:**
+- `NEXT_PUBLIC_SITE_URL` must be set to your actual production domain (e.g., `https://homeqr.app`)
+- Do NOT use IP addresses in production - use your actual domain name
+- This ensures QR codes point to the correct domain and cookies work properly
 
 ## 📄 License
 

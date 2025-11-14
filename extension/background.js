@@ -72,30 +72,76 @@ async function handleGenerateQR(payload) {
       throw new Error('Please sign in to HomeQR first. Go to your dashboard at ' + baseUrl + ' and sign in, then refresh this page and try again.');
     }
 
-    // Step 1: Check if listing already exists (by URL in description or by address)
-    const existingListingsResponse = await fetch(`${baseUrl}/api/listings`, {
+    // Step 0: Check subscription status before proceeding
+    const subscriptionStatusResponse = await fetch(`${baseUrl}/api/subscription/status`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${access_token}`,
       },
     });
 
+    if (subscriptionStatusResponse.ok) {
+      const statusData = await subscriptionStatusResponse.json();
+      
+      // Check if access is denied
+      if (!statusData.has_access || statusData.subscription_status === 'past_due' || statusData.trial_limit_reached) {
+        let errorMessage = 'Your trial has ended. Open dashboard to upgrade and continue generating QR codes.';
+        
+        if (statusData.trial_limit_reached && statusData.limit_details) {
+          const { feature, current, limit } = statusData.limit_details;
+          const featureName = feature === 'listings' ? 'listings' : feature === 'qr_codes' ? 'QR codes' : 'photos';
+          errorMessage = `Trial limit reached. You've used ${current}/${limit} ${featureName}. Upgrade to continue.`;
+        } else if (statusData.subscription_status === 'past_due') {
+          errorMessage = 'Your trial has ended. Open dashboard to upgrade and continue generating QR codes.';
+        } else if (!statusData.has_access) {
+          errorMessage = 'Subscription required. Open dashboard to start your free trial.';
+        }
+        
+        throw new Error(errorMessage);
+      }
+    } else {
+      // If subscription check fails, log but don't block (graceful degradation)
+      console.warn('Failed to check subscription status, proceeding anyway');
+    }
+
+    // Step 1: Check if listing already exists (by URL field directly, or by address)
+    // Only check if we have a valid listingUrl
     let listingId = null;
     let isNewListing = false;
-    if (existingListingsResponse.ok) {
-      const existingListingsData = await existingListingsResponse.json();
-      const existingListings = existingListingsData.data || [];
-      
-      // Check if a listing with this URL already exists
-      const existingListing = existingListings.find(listing => 
-        listing.description?.includes(listingUrl) || 
-        (listing.address?.toLowerCase() === address?.toLowerCase() && 
-         listing.city?.toLowerCase() === city?.toLowerCase())
-      );
+    
+    if (listingUrl) {
+      const existingListingsResponse = await fetch(`${baseUrl}/api/listings`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+        },
+      });
 
-      if (existingListing) {
-        listingId = existingListing.id;
-        console.log('Found existing listing:', listingId);
+      if (existingListingsResponse.ok) {
+        const existingListingsData = await existingListingsResponse.json();
+        const existingListings = existingListingsData.data || [];
+        
+        // Check if a listing with this URL already exists (check url field directly)
+        const existingListing = existingListings.find(listing => 
+          listing.url === listingUrl || 
+          (listing.url && listing.url.trim() === listingUrl.trim())
+        );
+
+        // Fallback: check by address+city if URL match fails
+        if (!existingListing && address && address !== 'Property Listing') {
+          const addressMatch = existingListings.find(listing => 
+            listing.address?.toLowerCase() === address?.toLowerCase() && 
+            listing.city?.toLowerCase() === city?.toLowerCase()
+          );
+          
+          if (addressMatch) {
+            listingId = addressMatch.id;
+            console.log('Found existing listing by address:', listingId);
+          }
+        } else if (existingListing) {
+          listingId = existingListing.id;
+          console.log('Found existing listing by URL:', listingId);
+        }
       }
     }
 

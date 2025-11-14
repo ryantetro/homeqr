@@ -70,13 +70,8 @@ export async function POST(request: NextRequest) {
               : null,
           });
 
-          // Only update has_paid if not in trial
-          if (subscription.status !== 'trialing') {
-            await supabaseAdmin
-              .from('users')
-              .update({ has_paid: true })
-              .eq('id', userId);
-          }
+          // Note: has_paid is now derived from subscription.status === 'active'
+          // No need to update users table
         }
         break;
       }
@@ -105,29 +100,50 @@ export async function POST(request: NextRequest) {
           })
           .eq('stripe_subscription_id', subscription.id);
 
-        // Update has_paid when trial ends and subscription becomes active
-        if (subscription.status === 'active') {
-          const { data: sub } = await supabaseAdmin
-            .from('subscriptions')
-            .select('user_id')
-            .eq('stripe_subscription_id', subscription.id)
-            .single();
-          
-          if (sub) {
-            await supabaseAdmin
-              .from('users')
-              .update({ has_paid: true })
-              .eq('id', sub.user_id);
-          }
-        }
+        // Note: has_paid is now derived from subscription.status === 'active'
+        // No need to update users table
         break;
       }
 
       case 'customer.subscription.trial_will_end': {
-        const subscription = event.data.object;
-        // Optionally send email notification or update UI
-        // For now, just log it
-        console.log(`Trial ending soon for subscription: ${subscription.id}`);
+        const subscription = event.data.object as unknown as {
+          id: string;
+          customer: string;
+          trial_end: number;
+        };
+        
+        // Get user from subscription
+        const { data: sub } = await supabaseAdmin
+          .from('subscriptions')
+          .select('user_id')
+          .eq('stripe_subscription_id', subscription.id)
+          .single();
+        
+        if (sub) {
+          // Get user email from auth.users (Supabase Auth)
+          const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(sub.user_id);
+          const userEmail = authUser?.user?.email;
+          
+          // Calculate days remaining
+          const trialEndDate = new Date(subscription.trial_end * 1000);
+          const now = new Date();
+          const daysRemaining = Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          
+          console.log(`[Trial Ending] Subscription ${subscription.id}, User ${sub.user_id}, Days remaining: ${daysRemaining}`);
+          
+          // Send email notification
+          if (userEmail) {
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+            const { sendTrialEndingEmail } = await import('@/lib/email/trial-ending');
+            
+            await sendTrialEndingEmail({
+              email: userEmail,
+              userName: userEmail.split('@')[0], // Fallback to email prefix
+              daysRemaining,
+              upgradeUrl: `${siteUrl}/dashboard/billing`,
+            });
+          }
+        }
         break;
       }
 

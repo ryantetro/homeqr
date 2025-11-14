@@ -44,12 +44,21 @@ export async function POST(request: NextRequest) {
     const deviceType = getDeviceType(userAgent);
     const timeOfDay = new Date().getHours();
     const sessionId = getSessionId(request);
+    
+    // Debug: Log cookie info
+    const sessionCookie = request.cookies.get('homeqr_session');
+    console.log('[PageView Track] Session cookie check:', {
+      cookieExists: !!sessionCookie,
+      cookieValue: sessionCookie?.value,
+      generatedSessionId: sessionId,
+      cookieMatches: sessionCookie?.value === sessionId,
+    });
 
     // Track page view (for microsite visits)
     if (source === 'microsite' || source === 'direct') {
       // Update analytics with page view
       const today = new Date().toISOString().split('T')[0];
-      const { data: existingAnalytics, error: fetchError } = await supabase
+      const { data: existingAnalytics } = await supabase
         .from('analytics')
         .select('id, page_views')
         .eq('listing_id', listing_id)
@@ -139,25 +148,109 @@ export async function POST(request: NextRequest) {
       }
 
       // Track session for unique visitor count
-      // Check if this session already has a scan (to prevent double-counting)
-      const { data: existingSession } = await supabase
+      // First, check if this session already exists (by session_id from cookie)
+      const { data: existingSession, error: sessionLookupError } = await supabase
         .from('scan_sessions')
-        .select('id, scan_count, source')
+        .select('id, scan_count, source, first_scan_at, listing_id, session_id')
         .eq('listing_id', listing_id)
         .eq('session_id', sessionId)
         .maybeSingle();
+      
+      console.log('[PageView Track] Session lookup result:', {
+        found: !!existingSession,
+        error: sessionLookupError,
+        listing_id,
+        sessionId,
+        existingSessionData: existingSession ? {
+          id: existingSession.id,
+          scan_count: existingSession.scan_count,
+          source: existingSession.source,
+          listing_id: existingSession.listing_id,
+          session_id: existingSession.session_id,
+        } : null,
+      });
 
       if (!existingSession) {
-        // Create new session (new unique visitor from page view only)
-        const insertResult = await supabase.from('scan_sessions').insert({
+        // No session found by cookie - check for recent QR scan session (within 5 minutes) as fallback
+        // This is a safety net in case cookies aren't sent (shouldn't happen with credentials: 'include')
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        console.log('[PageView Track] Checking for recent QR scan session:', {
           listing_id,
-          session_id: sessionId,
-          device_type: deviceType,
-          time_of_day: timeOfDay,
-          referrer: referrer,
-          source: source || 'direct', // Track if this is from microsite visit or other
-          scan_count: 0, // No scan, just page view
+          sessionId,
+          fiveMinutesAgo,
+          currentTime: new Date().toISOString(),
         });
+        
+        const { data: recentQRSession, error: recentQRError } = await supabase
+          .from('scan_sessions')
+          .select('id, scan_count, source, first_scan_at, session_id, listing_id')
+          .eq('listing_id', listing_id)
+          .eq('source', 'qr')
+          .gt('scan_count', 0)
+          .gte('first_scan_at', fiveMinutesAgo)
+          .order('first_scan_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (recentQRError) {
+          console.error('[PageView Track] Error checking for recent QR session:', recentQRError);
+        }
+        
+        console.log('[PageView Track] Recent QR session check result:', {
+          found: !!recentQRSession,
+          session_id: recentQRSession?.session_id,
+          listing_id: recentQRSession?.listing_id,
+          scan_count: recentQRSession?.scan_count,
+          source: recentQRSession?.source,
+          first_scan_at: recentQRSession?.first_scan_at,
+        });
+
+        let qrSessionUpdated = false;
+        if (recentQRSession) {
+          // Found recent QR scan session - update it instead of creating new visit
+          console.log('[PageView Track] Found recent QR scan session, updating instead of creating new visit:', {
+            session_id: recentQRSession.session_id,
+            qr_scan_count: recentQRSession.scan_count,
+            first_scan_at: recentQRSession.first_scan_at,
+          });
+
+          const updateResult = await supabase
+            .from('scan_sessions')
+            .update({
+              last_scan_at: new Date().toISOString(), // Update timestamp so it shows as recent
+              device_type: deviceType,
+              time_of_day: timeOfDay,
+              referrer: referrer,
+              // DO NOT update source or scan_count - preserve QR scan designation
+            })
+            .eq('id', recentQRSession.id);
+
+          if (updateResult.error) {
+            console.error('[PageView Track] Failed to update recent QR scan session:', updateResult.error);
+            // Will fall through to create new session
+          } else {
+            console.log('[PageView Track] Updated recent QR scan session (preserved source: qr):', {
+              id: recentQRSession.id,
+              scan_count: recentQRSession.scan_count,
+              source: recentQRSession.source,
+            });
+            qrSessionUpdated = true;
+            // Skip creating new session - we've updated the QR scan session
+            // Continue to unique visitors count update below
+          }
+        }
+        
+        if (!qrSessionUpdated) {
+          // No recent QR scan session found OR update failed - create new microsite visit session
+          const insertResult = await supabase.from('scan_sessions').insert({
+            listing_id,
+            session_id: sessionId,
+            device_type: deviceType,
+            time_of_day: timeOfDay,
+            referrer: referrer,
+            source: source || 'direct', // Track if this is from microsite visit or other
+            scan_count: 0, // No scan, just page view
+          });
         
         if (insertResult.error) {
           // Handle duplicate key error - session was created between check and insert (race condition)
@@ -207,12 +300,14 @@ export async function POST(request: NextRequest) {
         } else {
           console.log('[PageView Track] Created new scan session for page view:', { listing_id, source, sessionId, scan_count: 0 });
         }
+        }
       } else {
-        // Update existing session
-        console.log('[PageView Track] Found existing session:', { 
+        // Update existing session (found by cookie session_id)
+        console.log('[PageView Track] Found existing session by cookie:', { 
           id: existingSession.id, 
           scan_count: existingSession.scan_count,
-          current_source: existingSession.source 
+          current_source: existingSession.source,
+          first_scan_at: existingSession.first_scan_at
         });
         
         if (existingSession.scan_count === 0) {
@@ -251,6 +346,7 @@ export async function POST(request: NextRequest) {
           // Don't create a separate microsite visit entry - the QR scan already represents this activity
           // Just update the timestamp so it shows as recent in Recent Activity
           // This prevents double-counting: if they scanned QR, it's a "QR Code Scanned", not a separate "Microsite Visit"
+          // IMPORTANT: Preserve source as 'qr' - do not change it
           const updateResult = await supabase
             .from('scan_sessions')
             .update({ 
@@ -258,13 +354,14 @@ export async function POST(request: NextRequest) {
               device_type: deviceType,
               time_of_day: timeOfDay,
               referrer: referrer,
+              // DO NOT update source or scan_count - preserve QR scan designation
             })
             .eq('id', existingSession.id);
           
           if (updateResult.error) {
             console.error('[PageView Track] Failed to update scan session timestamp:', updateResult.error);
           } else {
-            console.log('[PageView Track] Updated QR scan session timestamp (no separate visit entry):', { 
+            console.log('[PageView Track] Updated QR scan session timestamp (preserved source: qr):', { 
               id: existingSession.id,
               scan_count: existingSession.scan_count,
               source: existingSession.source

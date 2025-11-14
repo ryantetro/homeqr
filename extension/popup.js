@@ -59,7 +59,9 @@ async function loadInitialData() {
 
     // Load generate tab
     if (authToken) {
-      loadGenerateTab();
+      await loadGenerateTab();
+      // Load usage stats after generate tab loads
+      setTimeout(() => loadUsageStats(), 500);
     } else {
       showAuthPrompt();
     }
@@ -153,6 +155,10 @@ function handleListingResponse(response, url) {
 
 function displayListingInfo(listing) {
   const generateContent = document.getElementById('generateContent');
+  
+  // Hide subscription error when displaying listing info (user might have fixed issue)
+  hideSubscriptionError();
+  
   const displayAddress = listing.address || listing.title || 'Property Listing';
   const locationParts = [];
   if (listing.city) locationParts.push(listing.city);
@@ -185,6 +191,9 @@ function displayListingInfo(listing) {
   `;
 
   document.getElementById('generateBtn').addEventListener('click', generateQR);
+  
+  // Reload usage stats after displaying listing info
+  loadUsageStats();
 }
 
 function showManualForm(url, extractedData = null) {
@@ -423,6 +432,9 @@ function generateQR() {
       }
 
       if (response.success && response.data) {
+        // Hide subscription error on success
+        hideSubscriptionError();
+        
         displayQR(response.data);
         btn.innerHTML = '✓ QR Code Generated';
         btn.disabled = true;
@@ -435,8 +447,17 @@ function generateQR() {
           message = 'QR code generated successfully!';
         }
         showToast(message, 'success');
+        
+        // Reload usage stats after successful generation
+        loadUsageStats();
       } else {
-        showToast(response.error || 'Failed to generate QR code', 'error');
+        // Check if error is subscription-related
+        const errorMessage = response.error || 'Failed to generate QR code';
+        if (errorMessage.includes('trial') || errorMessage.includes('subscription') || errorMessage.includes('upgrade')) {
+          showSubscriptionError(errorMessage);
+        } else {
+          showToast(errorMessage, 'error');
+        }
         btn.disabled = false;
         btn.innerHTML = 'Generate QR Code';
       }
@@ -672,6 +693,135 @@ function showAuthPrompt() {
       </a>
     </div>
   `;
+}
+
+// Load and display usage stats
+async function loadUsageStats() {
+  const usageStatsContainer = document.getElementById('usageStats');
+  if (!usageStatsContainer || !authToken) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${siteUrl}/api/subscription/usage`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      // Hide usage stats if not available
+      usageStatsContainer.style.display = 'none';
+      return;
+    }
+
+    const data = await response.json();
+    
+    // Only show for trialing users
+    if (!data.isTrial || !data.usage) {
+      usageStatsContainer.style.display = 'none';
+      return;
+    }
+
+    const { qr_codes, listings, photos } = data.usage;
+    
+    // Calculate percentages
+    const qrPercent = Math.round((qr_codes.current / qr_codes.limit) * 100);
+    const listingsPercent = Math.round((listings.current / listings.limit) * 100);
+    const photosPercent = Math.round((photos.current / photos.limit) * 100);
+    
+    // Determine warning level (80%+)
+    const qrWarning = qrPercent >= 80;
+    const listingsWarning = listingsPercent >= 80;
+    const photosWarning = photosPercent >= 80;
+
+    usageStatsContainer.innerHTML = `
+      <div class="usage-stats-header" style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 8px;">
+        Trial Usage
+      </div>
+      <div class="usage-stat-item" style="margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span style="color: #64748b;">Listings used:</span>
+          <span style="font-weight: 600; color: ${listingsWarning ? '#ef4444' : '#475569'};">${listings.current}/${listings.limit}</span>
+        </div>
+        <div class="usage-progress" style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+          <div style="height: 100%; width: ${listingsPercent}%; background: ${listingsWarning ? '#ef4444' : '#3b82f6'}; transition: width 0.3s;"></div>
+        </div>
+      </div>
+      <div class="usage-stat-item" style="margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span style="color: #64748b;">QR codes generated:</span>
+          <span style="font-weight: 600; color: ${qrWarning ? '#ef4444' : '#475569'};">${qr_codes.current}/${qr_codes.limit}</span>
+        </div>
+        <div class="usage-progress" style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+          <div style="height: 100%; width: ${qrPercent}%; background: ${qrWarning ? '#ef4444' : '#3b82f6'}; transition: width 0.3s;"></div>
+        </div>
+      </div>
+      <div class="usage-stat-item" style="margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+          <span style="color: #64748b;">Photos uploaded:</span>
+          <span style="font-weight: 600; color: ${photosWarning ? '#ef4444' : '#475569'};">${photos.current}/${photos.limit}</span>
+        </div>
+        <div class="usage-progress" style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+          <div style="height: 100%; width: ${photosPercent}%; background: ${photosWarning ? '#ef4444' : '#3b82f6'}; transition: width 0.3s;"></div>
+        </div>
+      </div>
+    `;
+    
+    usageStatsContainer.style.display = 'block';
+  } catch (error) {
+    console.error('Error loading usage stats:', error);
+    usageStatsContainer.style.display = 'none';
+  }
+}
+
+// Show subscription error message
+function showSubscriptionError(errorMessage) {
+  const subscriptionErrorContainer = document.getElementById('subscriptionError');
+  const generateContent = document.getElementById('generateContent');
+  
+  if (!subscriptionErrorContainer) return;
+
+  subscriptionErrorContainer.innerHTML = `
+    <div class="subscription-error-content" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+      <div style="display: flex; align-items: start; gap: 8px;">
+        <span style="font-size: 18px;">⚠️</span>
+        <div style="flex: 1;">
+          <div style="font-weight: 600; color: #991b1b; font-size: 13px; margin-bottom: 4px;">
+            ${escapeHtml(errorMessage)}
+          </div>
+          <a href="${siteUrl}/dashboard/billing" target="_blank" class="btn btn-primary" style="text-decoration: none; display: inline-block; margin-top: 8px; padding: 6px 12px; font-size: 12px;">
+            Open Dashboard to Upgrade
+          </a>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  subscriptionErrorContainer.style.display = 'block';
+  
+  // Hide generate content when subscription error is shown
+  if (generateContent) {
+    generateContent.style.opacity = '0.5';
+    generateContent.style.pointerEvents = 'none';
+  }
+}
+
+// Hide subscription error
+function hideSubscriptionError() {
+  const subscriptionErrorContainer = document.getElementById('subscriptionError');
+  const generateContent = document.getElementById('generateContent');
+  
+  if (subscriptionErrorContainer) {
+    subscriptionErrorContainer.style.display = 'none';
+  }
+  
+  if (generateContent) {
+    generateContent.style.opacity = '1';
+    generateContent.style.pointerEvents = 'auto';
+  }
 }
 
 // Toast Notification System

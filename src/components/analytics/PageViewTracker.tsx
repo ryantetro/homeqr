@@ -18,6 +18,7 @@ export default function PageViewTracker({ listingId, source = 'microsite' }: Pag
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include', // Include cookies so session can be matched
           body: JSON.stringify({
             listing_id: listingId,
             source: source,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { checkUserAccess } from '@/lib/subscription/access';
 
 const VALID_STATUSES = ['new', 'contacted', 'qualified', 'converted'];
 
@@ -12,6 +13,16 @@ export async function PATCH(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check access
+    const access = await checkUserAccess(user.id);
+    if (!access.hasAccess) {
+      console.log(`[Access Denied] User ${user.id} attempted to update lead. Reason: ${access.reason}`);
+      return NextResponse.json(
+        { error: 'Subscription required. Please upgrade to manage leads.' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();

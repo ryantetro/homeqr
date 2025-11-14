@@ -5,6 +5,8 @@ import ExtensionLink from '@/components/dashboard/ExtensionLink';
 import TopPerformingProperties from '@/components/dashboard/TopPerformingProperties';
 import OnboardingModalWrapper from '@/components/dashboard/OnboardingModalWrapper';
 import DashboardClient from '@/components/dashboard/DashboardClient';
+import UsageNudge from '@/components/dashboard/UsageNudge';
+import ExpiredTrialOverlay from '@/components/dashboard/ExpiredTrialOverlay';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
@@ -34,6 +36,15 @@ export default async function DashboardPage() {
     .eq('user_id', user.id)
     .in('status', ['active', 'trialing', 'past_due'])
     .maybeSingle();
+
+  // Check if subscription is expired
+  const isExpired =
+    !userData?.is_beta_user &&
+    subscription &&
+    (subscription.status === 'past_due' ||
+      (subscription.current_period_end &&
+        new Date(subscription.current_period_end) < new Date() &&
+        subscription.status !== 'active'));
 
   const showOnboarding = !userData?.onboarding_completed;
 
@@ -90,15 +101,6 @@ export default async function DashboardPage() {
     thisWeekAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
   const thisWeekLeads =
     thisWeekAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
-
-  // Get recent listings
-  const { data: recentListings } = await supabase
-    .from('listings')
-    .select('id, address, price, created_at, qrcodes(scan_count)')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(5);
 
   // Get ALL listings first (not just 5)
   const { data: allListingsForTop } = await supabase
@@ -177,142 +179,291 @@ export default async function DashboardPage() {
         </Suspense>
       )}
 
-      {/* Hero Section */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Welcome back
-        </h1>
-        <p className="text-gray-600">
-          Here&apos;s how your properties are performing
-        </p>
-      </div>
+      {/* Usage Nudge - Show for trialing users */}
+      {subscription?.status === 'trialing' && !userData?.is_beta_user && (
+        <UsageNudge subscriptionStatus={subscription.status} />
+      )}
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="hover:shadow-lg transition-shadow">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
-                </div>
-              </div>
-            </div>
-            <p className="text-3xl font-bold text-gray-900 mb-1">
-              {conversionRate.toFixed(1)}%
-            </p>
-            <p className="text-sm text-gray-500">
-              {leadsCount || 0} of {totalScans} converted
+      {/* Dashboard Content */}
+      {isExpired ? (
+        <ExpiredTrialOverlay>
+          {/* Hero Section */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome back
+            </h1>
+            <p className="text-gray-600">
+              Here&apos;s how your properties are performing
             </p>
           </div>
-        </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
+          {/* Key Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">QR Scans</p>
+                <p className="text-3xl font-bold text-gray-900 mb-1">
+                  {conversionRate.toFixed(1)}%
+                </p>
+                <p className="text-sm text-gray-500">
+                  {leadsCount || 0} of {totalScans} converted
+                </p>
+              </div>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">QR Scans</p>
+                    </div>
+                  </div>
                 </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekScans}</p>
+                <p className="text-sm text-gray-500">Past 7 days</p>
+              </div>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">New Leads</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekLeads}</p>
+                <p className="text-sm text-gray-500">Past 7 days</p>
+              </div>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Properties</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">{listingsCount || 0}</p>
+                <p className="text-sm text-gray-500">Active campaigns</p>
+              </div>
+            </Card>
+          </div>
+
+          {/* Quick Actions */}
+          <Card className="mb-8">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/dashboard/analytics">
+                  <Button variant="primary" size="md">
+                    View Analytics
+                  </Button>
+                </Link>
+                <Link href="/dashboard/listings">
+                  <Button variant="outline" size="md">
+                    Manage Properties
+                  </Button>
+                </Link>
+                <ExtensionLink />
               </div>
             </div>
-            <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekScans}</p>
-            <p className="text-sm text-gray-500">Past 7 days</p>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Recent Activity */}
+            <Card>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+                  <span className="text-xs text-gray-500">Live</span>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">New Leads</p>
+                <ActivityFeed />
+              </div>
+            </Card>
+
+            {/* Top Performers */}
+            <Card>
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-5">
+                  Top Performing Properties
+                </h2>
+                <TopPerformingProperties performers={topPerformers} />
+              </div>
+            </Card>
+          </div>
+        </ExpiredTrialOverlay>
+      ) : (
+        <>
+          {/* Hero Section */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome back
+            </h1>
+            <p className="text-gray-600">
+              Here&apos;s how your properties are performing
+            </p>
+          </div>
+
+          {/* Key Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Conversion Rate</p>
+                    </div>
+                  </div>
                 </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">
+                  {conversionRate.toFixed(1)}%
+                </p>
+                <p className="text-sm text-gray-500">
+                  {leadsCount || 0} of {totalScans} converted
+                </p>
+              </div>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">QR Scans</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekScans}</p>
+                <p className="text-sm text-gray-500">Past 7 days</p>
+              </div>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">New Leads</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekLeads}</p>
+                <p className="text-sm text-gray-500">Past 7 days</p>
+              </div>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Properties</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">{listingsCount || 0}</p>
+                <p className="text-sm text-gray-500">Active campaigns</p>
+              </div>
+            </Card>
+          </div>
+
+          {/* Quick Actions */}
+          <Card className="mb-8">
+            <div className="p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/dashboard/analytics">
+                  <Button variant="primary" size="md">
+                    View Analytics
+                  </Button>
+                </Link>
+                <Link href="/dashboard/listings">
+                  <Button variant="outline" size="md">
+                    Manage Properties
+                  </Button>
+                </Link>
+                <ExtensionLink />
               </div>
             </div>
-            <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekLeads}</p>
-            <p className="text-sm text-gray-500">Past 7 days</p>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
-                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Recent Activity */}
+            <Card>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
+                  <span className="text-xs text-gray-500">Live</span>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Properties</p>
-                </div>
+                <ActivityFeed />
               </div>
-            </div>
-            <p className="text-3xl font-bold text-gray-900 mb-1">{listingsCount || 0}</p>
-            <p className="text-sm text-gray-500">Active campaigns</p>
-          </div>
-        </Card>
-      </div>
+            </Card>
 
-      {/* Quick Actions */}
-      <Card className="mb-8">
-        <div className="p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/dashboard/analytics">
-              <Button variant="primary" size="md">
-                View Analytics
-              </Button>
-            </Link>
-            <Link href="/dashboard/listings">
-              <Button variant="outline" size="md">
-                Manage Properties
-              </Button>
-            </Link>
-            <ExtensionLink />
+            {/* Top Performers */}
+            <Card>
+              <div className="p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-5">
+                  Top Performing Properties
+                </h2>
+                <TopPerformingProperties performers={topPerformers} />
+              </div>
+            </Card>
           </div>
-        </div>
-      </Card>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Recent Activity */}
-        <Card>
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
-              <span className="text-xs text-gray-500">Live</span>
-            </div>
-            <ActivityFeed />
-          </div>
-        </Card>
-
-        {/* Top Performers */}
-        <Card>
-          <div className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-5">
-              Top Performing Properties
-            </h2>
-            <TopPerformingProperties performers={topPerformers} />
-          </div>
-        </Card>
-      </div>
+        </>
+      )}
     </div>
   );
 }

@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     // Get user data including beta status
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('has_paid, is_beta_user')
+      .select('is_beta_user')
       .eq('id', user.id)
       .single();
 
@@ -43,16 +43,11 @@ export async function GET(request: NextRequest) {
                                   (subscription.status === 'active' || subscription.status === 'trialing');
     const hasAccess = !!(userData.is_beta_user || hasActiveSubscription);
 
-    // Update has_paid if subscription exists but user record doesn't reflect it
-    if (subscription && !userData.has_paid) {
-      await supabase
-        .from('users')
-        .update({ has_paid: true })
-        .eq('id', user.id);
-    }
+    // Derive has_paid from subscription status (active = paid, trialing = not paid yet)
+    const hasPaid = subscription?.status === 'active';
 
     return NextResponse.json({
-      has_paid: userData.has_paid || !!subscription,
+      has_paid: hasPaid,
       is_beta_user: userData.is_beta_user || false,
       has_access: hasAccess,
       subscription: subscription || null,
