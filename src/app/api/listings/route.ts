@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { generateUniqueSlug } from '@/lib/utils/slug';
 import { checkUserAccess } from '@/lib/subscription/access';
 import { checkTrialLimit } from '@/lib/subscription/limits';
+import { enhanceListingWithAI } from '@/lib/ai/enhance-listing';
+import type { ListingDataForAI } from '@/types/ai';
 
 export async function GET(request: NextRequest) {
   try {
@@ -253,6 +255,59 @@ export async function POST(request: NextRequest) {
       // Log error but don't fail listing creation
       console.error('Failed to auto-generate QR code:', qrError);
     }
+
+    // Enhance listing with AI (async, non-blocking)
+    // Run in background to avoid blocking the response
+    enhanceListingWithAI({
+      address,
+      city,
+      state,
+      zip,
+      price: price ? parseFloat(price) : null,
+      bedrooms: bedrooms ? parseInt(bedrooms) : null,
+      bathrooms: bathrooms ? parseFloat(bathrooms) : null,
+      square_feet: square_feet ? parseInt(square_feet) : null,
+      description,
+      property_type,
+      property_subtype,
+      year_built: year_built ? parseInt(String(year_built)) : null,
+      lot_size,
+      features,
+      interior_features,
+      exterior_features,
+      parking_spaces: parking_spaces ? parseInt(String(parking_spaces)) : null,
+      garage_spaces: garage_spaces ? parseInt(String(garage_spaces)) : null,
+      stories: stories ? parseInt(String(stories)) : null,
+      heating,
+      cooling,
+      flooring,
+      fireplace_count: fireplace_count ? parseInt(String(fireplace_count)) : null,
+      hoa_fee: hoa_fee ? parseFloat(String(hoa_fee)) : null,
+      price_per_sqft: price_per_sqft ? parseFloat(String(price_per_sqft)) : null,
+    })
+      .then(async (aiEnhancements) => {
+        // Update listing with AI enhancements
+        await supabase
+          .from('listings')
+          .update(aiEnhancements)
+          .eq('id', listing.id);
+        console.log(`[AI Enhancement] Successfully enhanced listing ${listing.id}`);
+      })
+      .catch((aiError) => {
+        // Log error but don't fail listing creation
+        console.error(`[AI Enhancement] Failed to enhance listing ${listing.id}:`, aiError);
+        // Still update status to 'failed'
+        supabase
+          .from('listings')
+          .update({
+            ai_enhancement_status: 'failed',
+            ai_enhanced_at: new Date().toISOString(),
+          })
+          .eq('id', listing.id)
+          .catch((updateError) => {
+            console.error('[AI Enhancement] Failed to update status:', updateError);
+          });
+      });
 
     return NextResponse.json({ data: listing });
   } catch (error: unknown) {

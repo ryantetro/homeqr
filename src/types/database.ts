@@ -64,6 +64,37 @@ export interface Database {
           status: string;
           created_at: string;
           updated_at: string;
+          // AI enhancement fields
+          ai_description: string | null;
+          ai_key_features: string | null;
+          ai_lifestyle_summary: string | null;
+          ai_social_caption: string | null;
+          ai_enhanced_at: string | null;
+          ai_enhancement_status: string | null;
+          // Additional property detail fields (from previous migrations)
+          url: string | null;
+          slug: string | null;
+          property_type: string | null;
+          property_subtype: string | null;
+          year_built: number | null;
+          lot_size: string | null;
+          features: string | null;
+          interior_features: string | null;
+          exterior_features: string | null;
+          parking_spaces: number | null;
+          garage_spaces: number | null;
+          stories: number | null;
+          heating: string | null;
+          cooling: string | null;
+          flooring: string | null;
+          fireplace_count: number | null;
+          hoa_fee: number | null;
+          tax_assessed_value: number | null;
+          annual_tax_amount: number | null;
+          price_per_sqft: number | null;
+          zestimate: number | null;
+          days_on_market: number | null;
+          listing_date: string | null;
         };
         Insert: {
           id?: string;
@@ -82,6 +113,37 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
+          // AI enhancement fields
+          ai_description?: string | null;
+          ai_key_features?: string | null;
+          ai_lifestyle_summary?: string | null;
+          ai_social_caption?: string | null;
+          ai_enhanced_at?: string | null;
+          ai_enhancement_status?: string | null;
+          // Additional property detail fields
+          url?: string | null;
+          slug?: string | null;
+          property_type?: string | null;
+          property_subtype?: string | null;
+          year_built?: number | null;
+          lot_size?: string | null;
+          features?: string | null;
+          interior_features?: string | null;
+          exterior_features?: string | null;
+          parking_spaces?: number | null;
+          garage_spaces?: number | null;
+          stories?: number | null;
+          heating?: string | null;
+          cooling?: string | null;
+          flooring?: string | null;
+          fireplace_count?: number | null;
+          hoa_fee?: number | null;
+          tax_assessed_value?: number | null;
+          annual_tax_amount?: number | null;
+          price_per_sqft?: number | null;
+          zestimate?: number | null;
+          days_on_market?: number | null;
+          listing_date?: string | null;
         };
         Update: {
           id?: string;
@@ -100,6 +162,37 @@ export interface Database {
           status?: string;
           created_at?: string;
           updated_at?: string;
+          // AI enhancement fields
+          ai_description?: string | null;
+          ai_key_features?: string | null;
+          ai_lifestyle_summary?: string | null;
+          ai_social_caption?: string | null;
+          ai_enhanced_at?: string | null;
+          ai_enhancement_status?: string | null;
+          // Additional property detail fields
+          url?: string | null;
+          slug?: string | null;
+          property_type?: string | null;
+          property_subtype?: string | null;
+          year_built?: number | null;
+          lot_size?: string | null;
+          features?: string | null;
+          interior_features?: string | null;
+          exterior_features?: string | null;
+          parking_spaces?: number | null;
+          garage_spaces?: number | null;
+          stories?: number | null;
+          heating?: string | null;
+          cooling?: string | null;
+          flooring?: string | null;
+          fireplace_count?: number | null;
+          hoa_fee?: number | null;
+          tax_assessed_value?: number | null;
+          annual_tax_amount?: number | null;
+          price_per_sqft?: number | null;
+          zestimate?: number | null;
+          days_on_market?: number | null;
+          listing_date?: string | null;
         };
       };
       qrcodes: {

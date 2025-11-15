@@ -8,6 +8,8 @@ import { formatCurrency } from '@/lib/utils/format';
 import Link from 'next/link';
 import ImageGallery from '@/components/listings/ImageGallery';
 import ListingActions from '@/components/listings/ListingActions';
+import AIEnhancements from '@/components/listings/AIEnhancements';
+import AIEnhancementControls from '@/components/listings/AIEnhancementControls';
 
 export default async function ListingDetailPage({
   params,
@@ -527,7 +529,7 @@ export default async function ListingDetailPage({
               )}
 
               {/* Description */}
-              {listing.description && (
+              {listing.description && !listing.ai_description && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Description</h3>
                   <div className="bg-gray-50 rounded-lg p-6">
@@ -537,6 +539,18 @@ export default async function ListingDetailPage({
               )}
             </div>
           </Card>
+
+          {/* AI Enhancements Section */}
+          <AIEnhancementControls
+            listingId={listing.id}
+            aiDescription={listing.ai_description}
+            aiKeyFeatures={listing.ai_key_features}
+            aiLifestyleSummary={listing.ai_lifestyle_summary}
+            aiSocialCaption={listing.ai_social_caption}
+            originalDescription={listing.description}
+            aiEnhancementStatus={listing.ai_enhancement_status}
+            aiEnhancedAt={listing.ai_enhanced_at}
+          />
 
           {/* Leads Section */}
           <Card className="border border-gray-200 hover:shadow-lg transition-shadow">

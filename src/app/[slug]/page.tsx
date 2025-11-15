@@ -10,6 +10,7 @@ import AgentCard from '@/components/listings/AgentCard';
 import ShareButton from '@/components/listings/ShareButton';
 import ViewCount from '@/components/listings/ViewCount';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
+import AIEnhancements from '@/components/listings/AIEnhancements';
 
 // Small helpers
 const formatNumber = (n?: number | null) =>
@@ -360,8 +361,20 @@ export default async function SlugListingPage({
               </Card>
             )}
 
+            {/* AI Enhancements - Hide social caption and AI labels for public microsite */}
+            {(listing.ai_description || listing.ai_key_features || listing.ai_lifestyle_summary) && (
+              <AIEnhancements
+                aiDescription={listing.ai_description}
+                aiKeyFeatures={listing.ai_key_features}
+                aiLifestyleSummary={listing.ai_lifestyle_summary}
+                originalDescription={listing.description}
+                hideSocialCaption={true}
+                showAILabels={false}
+              />
+            )}
+
             {/* Highlights (auto-extract first 4 punchy lines from description) */}
-            {listing.description && (
+            {listing.description && !listing.ai_description && (
               <Card className="border-0 shadow-xl">
                 <div className="p-8">
                   <h2 className="text-2xl font-bold text-gray-900">

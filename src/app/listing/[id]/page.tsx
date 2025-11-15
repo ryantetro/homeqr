@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils/format';
 import ImageGallery from '@/components/listings/ImageGallery';
 import AgentCard from '@/components/listings/AgentCard';
 import PageViewTracker from '@/components/analytics/PageViewTracker';
+import AIEnhancements from '@/components/listings/AIEnhancements';
 
 export default async function PublicListingPage({
   params,
@@ -353,8 +354,20 @@ export default async function PublicListingPage({
               </Card>
             )}
 
+            {/* AI Enhancements - Hide social caption and AI labels for public microsite */}
+            {(listing.ai_description || listing.ai_key_features || listing.ai_lifestyle_summary) && (
+              <AIEnhancements
+                aiDescription={listing.ai_description}
+                aiKeyFeatures={listing.ai_key_features}
+                aiLifestyleSummary={listing.ai_lifestyle_summary}
+                originalDescription={listing.description}
+                hideSocialCaption={true}
+                showAILabels={false}
+              />
+            )}
+
             {/* Description */}
-            {listing.description && (
+            {listing.description && !listing.ai_description && (
               <Card className="border-0 shadow-xl">
                 <div className="p-6 sm:p-8">
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">About This Property</h2>

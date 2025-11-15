@@ -95,6 +95,9 @@ Required variables:
   - **Production**: Your Chrome Web Store listing URL (e.g., `https://chrome.google.com/webstore/detail/homeqr/...`)
   - **Development**: Leave unset to show manual installation instructions
   - When set, users will see a one-click install button from the Chrome Web Store
+- `GEMINI_API_KEY` - Google Gemini API key for AI enhancements
+  - Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+  - Used to automatically enhance listings with AI-generated descriptions, features, and social media captions
 
 3. **Set up Supabase database:**
 
