@@ -11,27 +11,83 @@ interface ImageUploadProps {
   maxSizeMB?: number;
 }
 
+// Compress and resize image before upload
+async function compressImage(
+  file: File,
+  maxWidth: number = 1920,
+  maxHeight: number = 1920,
+  quality: number = 0.85
+): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new window.Image();
+      img.onload = () => {
+        // Calculate new dimensions
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = width * ratio;
+          height = height * ratio;
+        }
+
+        // Create canvas and compress
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('Could not create canvas context'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to blob
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to compress image'));
+              return;
+            }
+            // Create a new File object with the original name
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg', // Always convert to JPEG for better compression
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ImageUpload({
   label,
   currentUrl,
   onUpload,
-  accept = 'image/*',
+  accept = 'image/png,image/jpeg,image/jpg,image/gif,image/webp,image/heic,image/heif',
   maxSizeMB = 5,
 }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(currentUrl || null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [compressing, setCompressing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Validate file size
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      setError(`File size must be less than ${maxSizeMB}MB`);
-      return;
-    }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -40,6 +96,35 @@ export default function ImageUpload({
     }
 
     setError(null);
+    setCompressing(true);
+
+    try {
+      // Compress and resize image before upload
+      const compressedFile = await compressImage(file, 1920, 1920, 0.85);
+      
+      // Check compressed file size
+      if (compressedFile.size > maxSizeMB * 1024 * 1024) {
+        // Try with lower quality if still too large
+        const smallerFile = await compressImage(file, 1600, 1600, 0.75);
+        if (smallerFile.size > maxSizeMB * 1024 * 1024) {
+          setError(`Image is too large even after compression. Please try a smaller image.`);
+          setCompressing(false);
+          return;
+        }
+        await processUpload(smallerFile);
+      } else {
+        await processUpload(compressedFile);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process image. Please try again.';
+      setError(errorMessage);
+      console.error('Compression error:', err);
+      setCompressing(false);
+    }
+  };
+
+  const processUpload = async (file: File) => {
+    setCompressing(false);
     setUploading(true);
 
     // Create preview
@@ -110,16 +195,16 @@ export default function ImageUpload({
           <button
             type="button"
             onClick={handleClick}
-            disabled={uploading}
+            disabled={uploading || compressing}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {uploading ? 'Uploading...' : preview ? 'Change Image' : 'Upload Image'}
+            {compressing ? 'Processing...' : uploading ? 'Uploading...' : preview ? 'Change Image' : 'Upload Image'}
           </button>
           {error && (
             <p className="mt-1 text-xs text-red-600">{error}</p>
           )}
           <p className="mt-1 text-xs text-gray-500">
-            Max size: {maxSizeMB}MB
+            Max size: {maxSizeMB}MB (images will be automatically compressed)
           </p>
         </div>
       </div>

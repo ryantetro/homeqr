@@ -100,8 +100,9 @@ export default function LeadForm({ listingId, agentName, onSubmit }: LeadFormPro
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           required
-          className="w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+          className="w-full px-4 py-3.5 md:py-3 text-base border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all min-h-[44px]"
           placeholder="Your full name"
+          autoComplete="name"
         />
       </div>
       <div>
@@ -114,8 +115,9 @@ export default function LeadForm({ listingId, agentName, onSubmit }: LeadFormPro
           value={formData.phone}
           onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
           required
-          className="w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+          className="w-full px-4 py-3.5 md:py-3 text-base border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all min-h-[44px]"
           placeholder="(555) 123-4567"
+          autoComplete="tel"
         />
       </div>
       <div>
@@ -128,8 +130,9 @@ export default function LeadForm({ listingId, agentName, onSubmit }: LeadFormPro
           value={formData.email}
           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           required
-          className="w-full px-4 py-3.5 text-base border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+          className="w-full px-4 py-3.5 md:py-3 text-base border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all min-h-[44px]"
           placeholder="your.email@example.com"
+          autoComplete="email"
         />
       </div>
       <div className="flex items-start">

@@ -4,17 +4,61 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePathname } from 'next/navigation';
 import Button from '@/components/ui/Button';
 
 export default function Header() {
   const { user, loading } = useAuth();
+  const pathname = usePathname();
   const [shrunk, setShrunk] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolledDown, setIsScrolledDown] = useState(false);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const rafRef = useRef<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
 
+  // Check if we're on a microsite page (listing pages)
+  const isMicrosite = pathname?.match(/^\/([^\/]+)$/) || pathname?.startsWith('/listing/');
+
   useEffect(() => {
+    // On microsite pages, hide header when scrolling down, show when scrolling up
+    if (isMicrosite) {
+      setShrunk(true);
+      
+      const handleScroll = () => {
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+        }
+        
+        rafRef.current = requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+          
+          // Hide header when scrolling down past 100px, show when scrolling up or at top
+          if (currentScrollY > 100 && currentScrollY > lastScrollY) {
+            // Scrolling down - hide header
+            setIsScrolledDown(true);
+          } else if (currentScrollY < lastScrollY || currentScrollY <= 100) {
+            // Scrolling up or near top - show header
+            setIsScrolledDown(false);
+          }
+          
+          setLastScrollY(currentScrollY);
+        });
+      };
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      handleScroll();
+      
+      return () => {
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+        }
+        window.removeEventListener('scroll', handleScroll);
+      };
+    }
+
+    // On other pages, use scroll-based shrinking
     const handleScroll = () => {
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
@@ -26,7 +70,6 @@ export default function Header() {
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    // Check initial state
     handleScroll();
     
     return () => {
@@ -35,7 +78,7 @@ export default function Header() {
       }
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [isMicrosite, lastScrollY]);
 
   // Close mobile menu when clicking outside
   useEffect(() => {
@@ -62,19 +105,41 @@ export default function Header() {
   }, [mobileMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-50 w-full">
+    <header 
+      className={`sticky top-0 z-50 w-full transition-transform duration-300 ease-in-out ${
+        isMicrosite 
+          ? `bg-white shadow-sm ${isScrolledDown ? '-translate-y-full' : 'translate-y-0'}` 
+          : ''
+      }`}
+    >
       <div className="container mx-auto px-3 sm:px-6 md:px-8 lg:px-12 relative">
         {/* Fixed frame - no layout changes, only GPU-friendly properties */}
         <div
-          className="relative rounded-full sm:rounded-full backdrop-blur-md mt-2 sm:mt-4 mb-2 w-full transition-[background-color,box-shadow,backdrop-filter] duration-700 ease-in-out"
+          className={`relative w-full transition-[background-color,box-shadow,backdrop-filter] duration-700 ease-in-out ${
+            isMicrosite 
+              ? 'rounded-none backdrop-blur-none mt-0 mb-0' // Seamless on microsites
+              : 'rounded-full sm:rounded-full backdrop-blur-md mt-2 sm:mt-4 mb-2'
+          }`}
           style={{
-            backgroundColor: shrunk ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0)',
-            backdropFilter: shrunk ? 'blur(12px)' : 'blur(0px)',
-            WebkitBackdropFilter: shrunk ? 'blur(12px)' : 'blur(0px)',
-            boxShadow: shrunk ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' : 'none',
+            backgroundColor: isMicrosite 
+              ? 'rgba(255, 255, 255, 1)' // Always solid white on microsites
+              : shrunk 
+                ? 'rgba(255, 255, 255, 0.95)' 
+                : 'rgba(255, 255, 255, 0)',
+            backdropFilter: isMicrosite ? 'none' : (shrunk ? 'blur(12px)' : 'blur(0px)'),
+            WebkitBackdropFilter: isMicrosite ? 'none' : (shrunk ? 'blur(12px)' : 'blur(0px)'),
+            boxShadow: isMicrosite 
+              ? 'none' // No shadow on microsites for seamless look
+              : (shrunk 
+                ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' 
+                : 'none'),
           }}
         >
-          <div className="flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 py-2.5 sm:py-3 md:px-8">
+          <div className={`flex items-center justify-between gap-2 sm:gap-4 ${
+            isMicrosite 
+              ? 'px-4 sm:px-6 md:px-8 py-3 sm:py-4' // Seamless padding on microsites
+              : 'px-3 sm:px-6 py-2.5 sm:py-3 md:px-8'
+          }`}>
             {/* Logo - smaller on mobile, fixed container, scale via transform */}
             <Link href="/" className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 transition-transform hover:scale-105 min-w-0">
               <div

@@ -219,18 +219,29 @@ export default async function SlugListingPage({
 
       {/* Sticky mobile bar */}
       <div className="fixed inset-x-0 bottom-0 z-50 bg-white/95 backdrop-blur supports-backdrop-filter:bg-white/85 shadow-2xl border-t lg:hidden">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          <div>
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 gap-3">
+          <div className="flex-1 min-w-0">
             {price && (
-              <div className="text-lg font-bold text-gray-900">{price}</div>
+              <div className="text-base md:text-lg font-bold text-gray-900 truncate">{price}</div>
             )}
             {chips.length > 0 && (
-              <div className="mt-0.5 text-xs text-gray-600">{chips.slice(0, 3).join(' • ')}</div>
+              <div className="mt-0.5 text-xs text-gray-600 truncate">{chips.slice(0, 2).join(' • ')}</div>
             )}
           </div>
+          {agent?.phone && (
+            <a
+              href={`tel:${agent.phone}`}
+              className="inline-flex items-center justify-center rounded-xl bg-gray-100 px-3 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-200 min-w-[44px] min-h-[44px]"
+              aria-label="Call agent"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </a>
+          )}
           <a
             href="#lead"
-            className="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-700 active:bg-blue-800"
+            className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-700 active:bg-blue-800 min-h-[44px] shrink-0"
           >
             Request Info
           </a>
@@ -238,7 +249,7 @@ export default async function SlugListingPage({
       </div>
 
       {/* Hero */}
-      <section className="relative w-full h-[62vh] min-h-[520px] max-h-[760px] overflow-hidden">
+      <section className="relative w-full h-[50vh] md:h-[62vh] min-h-[400px] md:min-h-[520px] max-h-[600px] md:max-h-[760px] overflow-hidden">
         {/* Photo */}
         {allImages[0] ? (
           <Image
@@ -262,52 +273,84 @@ export default async function SlugListingPage({
         ) : (
           <div className="absolute inset-0 bg-linear-to-br from-gray-200 to-gray-300" />
         )}
+        
+        {/* Tap to view gallery hint for mobile */}
+        {allImages.length > 1 && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-xs font-medium md:hidden">
+            Tap image to view gallery
+          </div>
+        )}
 
         {/* Overlays */}
         <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
+        
+        {/* Mobile Price Container - Bottom Right */}
+        {price && (
+          <div className="absolute bottom-1 right-4 md:hidden z-10">
+            <div className="flex flex-col items-end rounded-lg bg-white/95 px-2.5 py-1.5 shadow-lg ring-1 ring-black/5 backdrop-blur">
+              <div className="text-right">
+                <div className="text-base font-extrabold text-gray-900 leading-tight">
+                  {price}
+                </div>
+                {estMonthly && (
+                  <div className="mt-0.5 text-[9px] text-gray-600 leading-tight">
+                    {formatCurrency(estMonthly)}/mo*
+                  </div>
+                )}
+              </div>
+              <a
+                href="#lead"
+                className="mt-1.5 inline-flex items-center justify-center rounded-md bg-blue-600 px-2.5 py-1 text-[10px] font-semibold text-white shadow-md hover:bg-blue-700 cursor-pointer min-h-[28px]"
+              >
+                Request info
+              </a>
+            </div>
+          </div>
+        )}
+
         <div className="absolute inset-x-0 bottom-0">
           <div className="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
-            <div className="grid gap-6 lg:grid-cols-3 lg:items-end">
+            <div className="grid gap-4 md:gap-6 lg:grid-cols-3 lg:items-end">
               <div className="lg:col-span-2">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tight drop-shadow-xl">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tight drop-shadow-xl leading-tight">
                   {title}
                 </h1>
                 {cityLine && (
-                  <p className="mt-2 text-white/90 text-lg md:text-xl">
+                  <p className="mt-2 text-white/90 text-base sm:text-lg md:text-xl">
                     {cityLine}
                   </p>
                 )}
 
                 {/* Chips */}
                 {chips.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {chips.slice(0, 6).map(chip)}
+                  <div className="mt-3 md:mt-4 flex flex-wrap gap-2">
+                    {chips.slice(0, 4).map(chip)}
                   </div>
                 )}
               </div>
 
-              {/* Price & Primary CTAs */}
-              <div className="flex flex-col items-stretch justify-end gap-3">
+              {/* Price & Primary CTAs - Desktop Only */}
+              <div className="hidden md:flex flex-col items-stretch justify-end gap-2 md:gap-3 mt-4 lg:mt-0">
                 {price && (
-                  <div className="inline-flex items-center justify-between rounded-2xl bg-white/90 px-6 py-4 shadow-xl ring-1 ring-black/5 backdrop-blur">
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  <div className="inline-flex flex-col md:flex-row items-stretch md:items-center justify-between rounded-lg md:rounded-2xl bg-white/95 md:bg-white/90 px-2 md:px-6 py-1 md:py-4 shadow-md md:shadow-xl ring-1 ring-black/5 backdrop-blur">
+                    <div className="flex-1 min-w-0">
+                      <div className="hidden md:block text-xs font-semibold uppercase tracking-wide text-gray-600">
                         Asking Price
                       </div>
-                      <div className="text-3xl font-extrabold text-gray-900">
+                      <div className="text-base md:text-3xl font-extrabold text-gray-900 leading-tight">
                         {price}
                       </div>
                       {estMonthly && (
-                        <div className="mt-1 text-xs text-gray-600">
-                          Est. {formatCurrency(estMonthly)}/mo*
+                        <div className="mt-0.5 md:mt-1 text-[10px] md:text-xs text-gray-600 leading-tight">
+                          {formatCurrency(estMonthly)}/mo*
                         </div>
                       )}
                     </div>
-                    <span className="ml-6 hidden h-10 w-px bg-gray-200 md:block" />
-                    <div className="ml-6 flex flex-col gap-2">
+                    <span className="my-1 md:my-0 md:ml-6 hidden md:block h-10 w-px bg-gray-200" />
+                    <div className="flex flex-row md:flex-col gap-1 md:gap-2 md:ml-6 mt-1 md:mt-0">
                       <a
                         href="#lead"
-                        className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-700 cursor-pointer"
+                        className="flex-1 md:flex-none inline-flex items-center justify-center rounded-md md:rounded-xl bg-blue-600 px-2 md:px-5 py-1.5 md:py-2.5 text-[10px] md:text-sm font-semibold text-white shadow-md md:shadow-lg hover:bg-blue-700 cursor-pointer min-h-[32px] md:min-h-[44px]"
                       >
                         Request info
                       </a>
@@ -316,9 +359,9 @@ export default async function SlugListingPage({
                           href={agent.calendly_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 cursor-pointer"
+                          className="flex-1 md:flex-none inline-flex items-center justify-center rounded-md md:rounded-xl bg-white px-2 md:px-5 py-1.5 md:py-2.5 text-[10px] md:text-sm font-semibold text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 cursor-pointer min-h-[32px] md:min-h-[44px]"
                         >
-                          Book a tour
+                          Book tour
                         </a>
                       )}
                       {hasValidUrl && (
@@ -326,7 +369,7 @@ export default async function SlugListingPage({
                           href={listing.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-semibold text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 cursor-pointer"
+                          className="hidden md:inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-semibold text-gray-900 shadow ring-1 ring-gray-200 hover:bg-gray-50 cursor-pointer"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -351,9 +394,46 @@ export default async function SlugListingPage({
 
       {/* Content */}
       <main className="relative z-10 bg-white">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-4 pt-8 pb-24 sm:px-6 lg:grid-cols-3 lg:px-8">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 md:gap-8 px-4 pt-6 md:pt-8 pb-32 md:pb-24 sm:px-6 lg:grid-cols-3 lg:px-8">
           {/* LEFT */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 space-y-6 md:space-y-8">
+            {/* Lead Form - Moved to top for better visibility */}
+            <Card id="lead" className="border-0 shadow-xl md:shadow-xl">
+              <div className="p-6 md:p-8">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+                  Request Information
+                </h2>
+                <p className="mt-1 text-sm md:text-base text-gray-600">
+                  Tell us how we can help and an agent will follow up quickly.
+                </p>
+
+                {/* Social proof */}
+                <div className="mt-4 space-y-2">
+                  <ViewCount listingId={listing.id} />
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <span className="inline-flex h-2 w-2 rounded-full bg-green-500" />
+                    <span>Fast response • No obligation</span>
+                  </div>
+                  <p className="text-xs text-blue-700 font-medium">
+                    ⚡ Contact agent today for best availability
+                  </p>
+                </div>
+
+                <div className="mt-6">
+                  <LeadForm listingId={listing.id} agentName={agent?.full_name || undefined} />
+                </div>
+
+                {/* Trust badges */}
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                  {agent?.brokerage && <span>Brokerage: {agent.brokerage}</span>}
+                  {agent?.license_number && (
+                    <span>Lic #{agent.license_number}</span>
+                  )}
+                  <span>Secure • Private</span>
+                </div>
+              </div>
+            </Card>
+
             {/* Gallery */}
             {allImages.length > 1 && (
               <Card className="border-0 shadow-xl overflow-hidden">
@@ -376,11 +456,11 @@ export default async function SlugListingPage({
             {/* Highlights (auto-extract first 4 punchy lines from description) */}
             {listing.description && !listing.ai_description && (
               <Card className="border-0 shadow-xl">
-                <div className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-900">
+                <div className="p-6 md:p-8">
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-900">
                     Property Highlights
                   </h2>
-                  <ul className="mt-4 grid list-disc gap-2 pl-6 text-gray-800 leading-relaxed">
+                  <ul className="mt-4 grid list-disc gap-2 pl-6 text-base md:text-lg text-gray-800 leading-relaxed">
                     {listing.description
                       .split(/[\.\n]/)
                       .map((s: string) => s.trim())
@@ -406,11 +486,11 @@ export default async function SlugListingPage({
 
             {/* Specs */}
             <Card className="border-0 shadow-xl">
-              <div className="p-8">
-                <h2 className="text-2xl font-bold text-gray-900">
+              <div className="p-6 md:p-8">
+                <h2 className="text-xl md:text-2xl font-bold text-gray-900">
                   Details & Specs
                 </h2>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="mt-4 md:mt-6 grid gap-3 md:gap-4 sm:grid-cols-2">
                   {[
                     ['Type', listing.property_type || 'Single Family Residence'],
                     ['Year Built', listing.year_built],
@@ -571,42 +651,6 @@ export default async function SlugListingPage({
               </Card>
             )}
 
-            {/* Lead Form */}
-            <Card id="lead" className="border-0 shadow-xl">
-              <div className="p-8">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Request Information
-                </h2>
-                <p className="mt-1 text-gray-600">
-                  Tell us how we can help and an agent will follow up quickly.
-                </p>
-
-                {/* Social proof */}
-                <div className="mt-4 space-y-2">
-                  <ViewCount listingId={listing.id} />
-                  <div className="flex items-center gap-2 text-xs text-gray-600">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-green-500" />
-                    <span>Fast response • No obligation</span>
-                  </div>
-                  <p className="text-xs text-blue-700 font-medium">
-                    ⚡ Contact agent today for best availability
-                  </p>
-                </div>
-
-                <div className="mt-6">
-                  <LeadForm listingId={listing.id} agentName={agent?.full_name || undefined} />
-                </div>
-
-                {/* Trust badges */}
-                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                  {agent?.brokerage && <span>Brokerage: {agent.brokerage}</span>}
-                  {agent?.license_number && (
-                    <span>Lic #{agent.license_number}</span>
-                  )}
-                  <span>Secure • Private</span>
-                </div>
-              </div>
-            </Card>
 
             {/* Simple affordability box (optional) */}
             {price && estMonthly && (
