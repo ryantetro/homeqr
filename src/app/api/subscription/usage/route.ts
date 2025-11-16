@@ -5,10 +5,36 @@ import { checkUserAccess } from '@/lib/subscription/access';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const {
+    // Support both cookie-based and Bearer token authentication
+    let supabase = await createClient();
+    let {
       data: { user },
     } = await supabase.auth.getUser();
+
+    // If no user from cookies, try Bearer token (for extension requests)
+    if (!user) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
+        const tokenSupabase = createSupabaseClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          }
+        );
+        const { data: { user: tokenUser }, error: tokenError } = await tokenSupabase.auth.getUser(token);
+        if (tokenUser && !tokenError) {
+          user = tokenUser;
+          supabase = tokenSupabase;
+        }
+      }
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

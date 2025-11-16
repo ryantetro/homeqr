@@ -103,10 +103,22 @@ async function loadGenerateTab() {
       // Wait a moment for script to initialize, then request data
       setTimeout(() => {
         chrome.tabs.sendMessage(tab.id, { type: 'GET_LISTING_INFO' }, (response) => {
+          // Check for runtime errors
           if (chrome.runtime.lastError) {
+            // Suppress the error message - it's expected if content script isn't ready
+            const errorMsg = chrome.runtime.lastError.message;
+            if (errorMsg && !errorMsg.includes('Receiving end does not exist')) {
+              // Only log unexpected errors
+              console.warn('Content script message error:', errorMsg);
+            }
             // Content script might not be ready, try again
             setTimeout(() => {
               chrome.tabs.sendMessage(tab.id, { type: 'GET_LISTING_INFO' }, (response) => {
+                if (chrome.runtime.lastError) {
+                  // Content script not available, show manual form
+                  showManualForm(tab.url);
+                  return;
+                }
                 handleListingResponse(response, tab.url);
               });
             }, 500);
@@ -442,8 +454,17 @@ function generateQR() {
     (response) => {
       showLoader(false);
 
+      // Check for runtime errors first
       if (chrome.runtime.lastError) {
         showToast('Failed to generate QR code: ' + chrome.runtime.lastError.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = 'Generate QR Code';
+        return;
+      }
+
+      // Check if response exists
+      if (!response) {
+        showToast('No response from extension. Please try again.', 'error');
         btn.disabled = false;
         btn.innerHTML = 'Generate QR Code';
         return;
@@ -716,21 +737,28 @@ function showAuthPrompt() {
 // Load and display usage stats
 async function loadUsageStats() {
   const usageStatsContainer = document.getElementById('usageStats');
-  if (!usageStatsContainer || !authToken) {
+  if (!usageStatsContainer || !authToken || !siteUrl) {
     return;
   }
 
   try {
+    // Validate siteUrl before making request
+    if (!siteUrl.startsWith('http://') && !siteUrl.startsWith('https://')) {
+      usageStatsContainer.style.display = 'none';
+      return;
+    }
+
     const response = await fetch(`${siteUrl}/api/subscription/usage`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${authToken}`,
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
-      // Hide usage stats if not available
+      // Hide usage stats if not available (401, 403, etc.)
       usageStatsContainer.style.display = 'none';
       return;
     }
@@ -790,7 +818,9 @@ async function loadUsageStats() {
     
     usageStatsContainer.style.display = 'block';
   } catch (error) {
-    console.error('Error loading usage stats:', error);
+    // Silently fail - usage stats are optional
+    // Network errors, CORS issues, or auth issues are handled gracefully
+    // Don't log to console to avoid cluttering extension console
     usageStatsContainer.style.display = 'none';
   }
 }
