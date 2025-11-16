@@ -147,6 +147,68 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as unknown as {
+          subscription: string;
+          customer: string;
+        };
+        
+        if (invoice.subscription) {
+          // Get subscription details to update status
+          const subscriptionResponse = await stripe.subscriptions.retrieve(invoice.subscription as string);
+          const subscription = subscriptionResponse as unknown as {
+            id: string;
+            status: string;
+            current_period_start: number;
+            current_period_end: number;
+          };
+          
+          // Update subscription status (payment succeeded = active)
+          await supabaseAdmin
+            .from('subscriptions')
+            .update({
+              status: subscription.status,
+              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            })
+            .eq('stripe_subscription_id', subscription.id);
+          
+          console.log(`[Payment Succeeded] Subscription ${subscription.id} updated to ${subscription.status}`);
+        }
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as unknown as {
+          subscription: string;
+          customer: string;
+        };
+        
+        if (invoice.subscription) {
+          // Get subscription details to update status
+          const subscriptionResponse = await stripe.subscriptions.retrieve(invoice.subscription as string);
+          const subscription = subscriptionResponse as unknown as {
+            id: string;
+            status: string;
+            current_period_start: number;
+            current_period_end: number;
+          };
+          
+          // Update subscription status (payment failed = past_due)
+          await supabaseAdmin
+            .from('subscriptions')
+            .update({
+              status: subscription.status,
+              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            })
+            .eq('stripe_subscription_id', subscription.id);
+          
+          console.log(`[Payment Failed] Subscription ${subscription.id} updated to ${subscription.status}`);
+        }
+        break;
+      }
+
       default:
         console.log(`Unhandled event type: ${event.type}`);
     }

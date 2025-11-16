@@ -76,7 +76,7 @@ export default function ImageUpload({
   label,
   currentUrl,
   onUpload,
-  accept = 'image/png,image/jpeg,image/jpg,image/gif,image/webp,image/heic,image/heif',
+  accept = 'image/*',
   maxSizeMB = 5,
 }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(currentUrl || null);
@@ -191,6 +191,7 @@ export default function ImageUpload({
             accept={accept}
             onChange={handleFileChange}
             className="hidden"
+            multiple={false}
           />
           <button
             type="button"

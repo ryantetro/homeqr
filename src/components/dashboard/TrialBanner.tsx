@@ -69,8 +69,15 @@ export default function TrialBanner({ subscription, isBetaUser, onStartTrial }: 
     );
   }
 
-  // Show "Start Free Trial" banner if no subscription
-  if (!subscription || subscription.status === 'inactive') {
+  // Show "Start Free Trial" banner ONLY if:
+  // - No subscription exists, OR
+  // - Subscription status is 'inactive' or 'canceled'
+  // Do NOT show if trial is active ('trialing') or subscription is 'active'
+  const shouldShowActivationBanner = !subscription || 
+    subscription.status === 'inactive' || 
+    subscription.status === 'canceled';
+  
+  if (shouldShowActivationBanner) {
     return (
       <div className="mb-6 p-5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg text-white">
         <div className="flex items-center justify-between flex-wrap gap-4">

@@ -22,28 +22,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Check access
-    const access = await checkUserAccess(user.id);
-    if (!access.hasAccess) {
-      console.log(`[Access Denied] User ${user.id} attempted to upload file. Reason: ${access.reason}`);
-      return NextResponse.json(
-        { error: 'Subscription required. Please upgrade to upload files.' },
-        { status: 403 }
-      );
-    }
-
-    // Check trial limits if user is in trial (only for listing photos, not avatars)
-    if (access.reason === 'trial' && type !== 'avatar') {
-      const limitCheck = await checkTrialLimit(user.id, 'photos');
-      if (!limitCheck.allowed) {
+    // Allow avatar and logo uploads without subscription (needed for profile setup)
+    const isProfileImage = type === 'avatar' || type === 'logo';
+    
+    if (!isProfileImage) {
+      // For other file types (like listing photos), check subscription access
+      const access = await checkUserAccess(user.id);
+      if (!access.hasAccess) {
+        console.log(`[Access Denied] User ${user.id} attempted to upload file. Reason: ${access.reason}`);
         return NextResponse.json(
-          {
-            error: `Trial limit reached. You've uploaded ${limitCheck.current}/${limitCheck.limit} photos. Upgrade to upload unlimited photos.`,
-            limit: limitCheck.limit,
-            current: limitCheck.current,
-          },
+          { error: 'Subscription required. Please upgrade to upload files.' },
           { status: 403 }
         );
+      }
+
+      // Check trial limits for listing photos
+      if (access.reason === 'trial') {
+        const limitCheck = await checkTrialLimit(user.id, 'photos');
+        if (!limitCheck.allowed) {
+          return NextResponse.json(
+            {
+              error: `Trial limit reached. You've uploaded ${limitCheck.current}/${limitCheck.limit} photos. Upgrade to upload unlimited photos.`,
+              limit: limitCheck.limit,
+              current: limitCheck.current,
+            },
+            { status: 403 }
+          );
+        }
       }
     }
 

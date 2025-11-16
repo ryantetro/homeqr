@@ -84,9 +84,13 @@ Required variables:
 - `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon key
 - `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
-- `STRIPE_SECRET_KEY` - Your Stripe secret key
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Your Stripe publishable key
-- `STRIPE_WEBHOOK_SECRET` - Your Stripe webhook secret
+- `STRIPE_SECRET_KEY` - Your Stripe secret key (get from Stripe Dashboard → Developers → API Keys)
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Your Stripe publishable key (get from Stripe Dashboard → Developers → API Keys)
+- `STRIPE_WEBHOOK_SECRET` - Your Stripe webhook signing secret (get from Stripe Dashboard → Developers → Webhooks)
+- `STRIPE_STARTER_MONTHLY_PRICE_ID` - Price ID for Starter monthly plan (starts with `price_`)
+- `STRIPE_STARTER_ANNUAL_PRICE_ID` - Price ID for Starter annual plan (starts with `price_`)
+- `STRIPE_PRO_MONTHLY_PRICE_ID` - Price ID for Pro monthly plan (starts with `price_`)
+- `STRIPE_PRO_ANNUAL_PRICE_ID` - Price ID for Pro annual plan (starts with `price_`)
 - `NEXT_PUBLIC_SITE_URL` - Your site URL
   - **Development**: `http://localhost:3000` (or your local IP like `http://192.168.1.44:3000`)
   - **Production**: Your actual domain (e.g., `https://homeqr.app`)
@@ -103,7 +107,20 @@ Required variables:
 
 Run the SQL schema in `supabase/schema.sql` in your Supabase SQL Editor.
 
-4. **Run the development server:**
+4. **Set up Stripe (Optional but recommended):**
+
+See `STRIPE_SETUP.md` for complete Stripe integration setup instructions. Quick setup:
+
+- Create products and prices in Stripe Dashboard
+- Set up webhook endpoint
+- Enable Customer Portal
+- Add all Stripe environment variables to `.env.local`
+
+**Test cards:**
+- Success: `4242 4242 4242 4242`
+- Decline: `4000 0000 0000 0002`
+
+5. **Run the development server:**
 
 ```bash
 npm run dev

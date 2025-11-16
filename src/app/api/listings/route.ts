@@ -293,20 +293,21 @@ export async function POST(request: NextRequest) {
           .eq('id', listing.id);
         console.log(`[AI Enhancement] Successfully enhanced listing ${listing.id}`);
       })
-      .catch((aiError) => {
+      .catch(async (aiError) => {
         // Log error but don't fail listing creation
         console.error(`[AI Enhancement] Failed to enhance listing ${listing.id}:`, aiError);
         // Still update status to 'failed'
-        supabase
-          .from('listings')
-          .update({
-            ai_enhancement_status: 'failed',
-            ai_enhanced_at: new Date().toISOString(),
-          })
-          .eq('id', listing.id)
-          .catch((updateError) => {
-            console.error('[AI Enhancement] Failed to update status:', updateError);
-          });
+        try {
+          await supabase
+            .from('listings')
+            .update({
+              ai_enhancement_status: 'failed',
+              ai_enhanced_at: new Date().toISOString(),
+            })
+            .eq('id', listing.id);
+        } catch (updateError: unknown) {
+          console.error('[AI Enhancement] Failed to update status:', updateError);
+        }
       });
 
     return NextResponse.json({ data: listing });

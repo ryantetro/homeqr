@@ -61,6 +61,12 @@ export default async function PublicListingPage({
       zestimate,
       days_on_market,
       listing_date,
+      ai_description,
+      ai_key_features,
+      ai_lifestyle_summary,
+      ai_social_caption,
+      ai_enhanced_at,
+      ai_enhancement_status,
       user_id,
       users:user_id (
         full_name,
