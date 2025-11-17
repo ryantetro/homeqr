@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import ImageUpload from '@/components/onboarding/ImageUpload';
+import Link from 'next/link';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -24,10 +25,17 @@ export default function SettingsPage() {
     avatar_url: null as string | null,
     logo_url: null as string | null,
   });
+  const [subscription, setSubscription] = useState<{
+    status: string;
+    plan: string;
+    current_period_end: string | null;
+  } | null>(null);
+  const [isBetaUser, setIsBetaUser] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadProfile();
+      loadSubscription();
     }
   }, [user]);
 
@@ -55,11 +63,33 @@ export default function SettingsPage() {
           avatar_url: data.avatar_url || null,
           logo_url: data.logo_url || null,
         });
+        setIsBetaUser(data.is_beta_user || false);
       }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSubscription = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('status, plan, current_period_end')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setSubscription(data);
+      }
+    } catch (err: any) {
+      // Don't show error for subscription - it's optional
+      console.error('Failed to load subscription:', err);
     }
   };
 
@@ -144,6 +174,68 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {/* Billing Section */}
+      <Card className="mb-6">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Billing & Subscription</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Manage your subscription, payment methods, and billing information
+              </p>
+            </div>
+            <Link href="/dashboard/billing">
+              <Button variant="primary">
+                Manage Billing
+              </Button>
+            </Link>
+          </div>
+
+          {isBetaUser ? (
+            <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <svg className="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-blue-900">Beta User</p>
+                <p className="text-xs text-blue-700">You have full access with no billing required</p>
+              </div>
+            </div>
+          ) : subscription ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Current Plan</p>
+                  <p className="text-xs text-gray-600 capitalize mt-1">
+                    {subscription.plan === 'starter' ? 'Starter' : subscription.plan === 'pro' ? 'Pro' : subscription.plan}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900 capitalize">
+                    {subscription.status === 'trialing' ? 'Free Trial' : 
+                     subscription.status === 'active' ? 'Active' : 
+                     subscription.status === 'past_due' ? 'Past Due' : 
+                     subscription.status}
+                  </p>
+                  {subscription.current_period_end && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      {subscription.status === 'trialing' ? 'Trial ends' : 'Renews'} {new Date(subscription.current_period_end).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                No active subscription. <Link href="/dashboard/billing" className="font-medium underline hover:text-yellow-900">Start your free trial</Link> to get started.
+              </p>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Profile Section */}
       <Card>
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>

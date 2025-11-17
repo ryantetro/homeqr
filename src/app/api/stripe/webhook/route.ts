@@ -47,31 +47,93 @@ export async function POST(request: NextRequest) {
         const userId = session.metadata?.userId;
         const plan = session.metadata?.plan;
 
-        if (userId && plan && session.subscription) {
-          // Get subscription details to check trial status
-          const subscriptionResponse = await stripe.subscriptions.retrieve(session.subscription as string);
-          const subscription = subscriptionResponse as unknown as {
-            status: string;
-            current_period_start: number;
-            current_period_end: number;
-            trial_start: number | null;
-          };
-          
-          await supabaseAdmin.from('subscriptions').upsert({
-            user_id: userId,
-            stripe_customer_id: session.customer as string,
-            stripe_subscription_id: session.subscription as string,
-            status: subscription.status === 'trialing' ? 'trialing' : 'active',
-            plan: plan,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-            trial_started_at: subscription.trial_start 
-              ? new Date(subscription.trial_start * 1000).toISOString() 
-              : null,
-          });
+        console.log('[Webhook] checkout.session.completed:', {
+          userId,
+          plan,
+          subscription: session.subscription,
+          customer: session.customer,
+        });
 
-          // Note: has_paid is now derived from subscription.status === 'active'
-          // No need to update users table
+        if (userId && plan && session.subscription) {
+          try {
+            // Get subscription details to check trial status
+            const subscriptionResponse = await stripe.subscriptions.retrieve(session.subscription as string);
+            const subscription = subscriptionResponse as unknown as {
+              status: string;
+              current_period_start?: number;
+              current_period_end?: number;
+              trial_start: number | null;
+              trial_end?: number | null;
+            };
+            
+            console.log('[Webhook] Subscription details:', {
+              status: subscription.status,
+              trial_start: subscription.trial_start,
+              trial_end: subscription.trial_end,
+              period_start: subscription.current_period_start,
+              period_end: subscription.current_period_end,
+            });
+
+            // For trialing subscriptions, use trial_end as current_period_end if current_period_end is not available
+            const periodEnd = subscription.current_period_end 
+              ? subscription.current_period_end 
+              : subscription.trial_end;
+            const periodStart = subscription.current_period_start 
+              ? subscription.current_period_start 
+              : subscription.trial_start;
+
+            // Check if subscription exists first (since we don't have unique constraint on stripe_subscription_id)
+            const { data: existing } = await supabaseAdmin
+              .from('subscriptions')
+              .select('id')
+              .eq('stripe_subscription_id', session.subscription as string)
+              .maybeSingle();
+
+            const subscriptionData = {
+              user_id: userId,
+              stripe_customer_id: session.customer as string,
+              stripe_subscription_id: session.subscription as string,
+              status: subscription.status === 'trialing' ? 'trialing' : 'active',
+              plan: plan,
+              current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
+              current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+              // Note: trial_started_at column doesn't exist yet - migration not run
+            };
+
+            let data, error;
+            if (existing) {
+              // Update existing
+              const result = await supabaseAdmin
+                .from('subscriptions')
+                .update(subscriptionData)
+                .eq('stripe_subscription_id', session.subscription as string)
+                .select()
+                .single();
+              data = result.data;
+              error = result.error;
+            } else {
+              // Insert new
+              const result = await supabaseAdmin
+                .from('subscriptions')
+                .insert(subscriptionData)
+                .select()
+                .single();
+              data = result.data;
+              error = result.error;
+            }
+
+            if (error) {
+              console.error('[Webhook] Database upsert error:', error);
+              throw new Error(`Failed to save subscription: ${error.message}`);
+            }
+
+            console.log('[Webhook] Subscription saved successfully:', data);
+          } catch (error) {
+            console.error('[Webhook] Error processing checkout.session.completed:', error);
+            throw error; // Re-throw to trigger 500 response
+          }
+        } else {
+          console.warn('[Webhook] Missing required data:', { userId, plan, subscription: session.subscription });
         }
         break;
       }
@@ -94,9 +156,7 @@ export async function POST(request: NextRequest) {
             current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
             current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
             cancel_at_period_end: subscription.cancel_at_period_end,
-            trial_started_at: subscription.trial_start 
-              ? new Date(subscription.trial_start * 1000).toISOString() 
-              : null,
+            // Note: trial_started_at column doesn't exist yet - migration not run
           })
           .eq('stripe_subscription_id', subscription.id);
 

@@ -12,6 +12,8 @@ import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import { Suspense } from 'react';
 
+export const revalidate = 0; // Force revalidation on every request to prevent caching
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
@@ -30,12 +32,23 @@ export default async function DashboardPage() {
     .single();
 
   // Check for active subscription (trial or paid)
-  const { data: subscription } = await supabase
+  // Note: trial_started_at column may not exist if migration hasn't been run
+  const { data: subscription, error: subscriptionError } = await supabase
     .from('subscriptions')
-    .select('status, plan, current_period_start, current_period_end, trial_started_at')
+    .select('status, plan, current_period_start, current_period_end')
     .eq('user_id', user.id)
     .in('status', ['active', 'trialing', 'past_due'])
     .maybeSingle();
+
+  // Debug logging (remove in production)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Dashboard] Subscription query:', {
+      userId: user.id,
+      subscriptionFound: !!subscription,
+      subscriptionStatus: subscription?.status,
+      subscriptionError: subscriptionError?.message,
+    });
+  }
 
   // Check if subscription is expired
   const isExpired =

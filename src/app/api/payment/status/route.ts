@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Check for active subscription (including trialing, but NOT past_due)
     const { data: subscription } = await supabase
       .from('subscriptions')
-      .select('status, plan, current_period_end, trial_started_at')
+      .select('status, plan, current_period_end')
       .eq('user_id', user.id)
       .in('status', ['active', 'trialing', 'past_due'])
       .maybeSingle();

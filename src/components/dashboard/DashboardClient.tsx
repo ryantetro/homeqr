@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import TrialBanner from './TrialBanner';
 import TrialOnboardingModal from '@/components/onboarding/TrialOnboardingModal';
 import WelcomeScreen from './WelcomeScreen';
 import TrialExpiredModal from './TrialExpiredModal';
@@ -11,7 +10,6 @@ interface DashboardClientProps {
   subscription?: {
     status: string;
     current_period_end: string | null;
-    trial_started_at: string | null;
   } | null;
   isBetaUser: boolean;
   onboardingCompleted: boolean;
@@ -71,10 +69,6 @@ export default function DashboardClient({
     });
   }, [subscription, isBetaUser, onboardingCompleted, searchParams]);
 
-  const handleStartTrial = () => {
-    setShowTrialModal(true);
-  };
-
   const handleTrialModalComplete = () => {
     setShowTrialModal(false);
   };
@@ -93,11 +87,7 @@ export default function DashboardClient({
 
   return (
     <>
-      <TrialBanner
-        subscription={subscription}
-        isBetaUser={isBetaUser}
-        onStartTrial={handleStartTrial}
-      />
+      {/* TrialBanner removed - don't remind users about trial status */}
 
       {showTrialModal && (
         <TrialOnboardingModal
