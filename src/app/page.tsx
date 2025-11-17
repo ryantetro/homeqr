@@ -373,9 +373,48 @@ export default function Home() {
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { name: 'Starter', price: '$29', features: ['Up to 10 listings', '500 QR scans/month', 'Basic analytics'], popular: false },
-              { name: 'Pro', price: '$79', features: ['Unlimited listings', 'Unlimited scans', 'Custom branding', 'Lead export + automation'], popular: true },
-              { name: 'Team', price: '$299', features: ['Up to 10 agents', 'Shared analytics', 'Priority support'], popular: false },
+              { 
+                name: 'Starter', 
+                price: '$29', 
+                annualPrice: '$290',
+                annualMonthly: '$24.17',
+                features: [
+                  'Unlimited QR codes',
+                  'Unlimited listings',
+                  'Unlimited photos',
+                  'Basic analytics dashboard',
+                  'Lead capture forms',
+                  'Property microsites',
+                  'AI-enhanced listings',
+                  'Chrome extension',
+                  '30-day analytics retention'
+                ], 
+                popular: false 
+              },
+              { 
+                name: 'Pro', 
+                price: '$49', 
+                annualPrice: '$490',
+                annualMonthly: '$40.83',
+                features: [
+                  'Everything in Starter',
+                  'Advanced analytics (conversion funnels, time-of-day charts)',
+                  'CSV lead export',
+                  'Unlimited analytics retention'
+                ], 
+                popular: true 
+              },
+              { 
+                name: 'Team', 
+                price: '$299', 
+                features: [
+                  'Up to 10 agents',
+                  'Shared analytics',
+                  'Priority support'
+                ], 
+                popular: false,
+                contactUs: true
+              },
             ].map((plan, index) => (
               <AnimatedSection key={index} delay={index * 150}>
                 <Card className={`${plan.popular ? 'border-2 border-blue-600 bg-blue-50/30 relative shadow-lg' : 'border-gray-200 bg-white hover:shadow-lg'} transition-all duration-300 hover:-translate-y-1`}>
@@ -387,8 +426,19 @@ export default function Home() {
                   <CardHeader className={`pb-6 ${plan.popular ? 'pt-8' : ''}`}>
                     <CardTitle className="text-2xl font-semibold mb-6">{plan.name}</CardTitle>
                     <div className="mb-8">
-                      <span className={`text-5xl font-bold ${plan.popular ? 'text-blue-600' : 'text-gray-900'}`}>{plan.price}</span>
-                      <span className="text-xl text-gray-600 ml-2">/mo</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className={`text-5xl font-bold ${plan.popular ? 'text-blue-600' : 'text-gray-900'}`}>{plan.price}</span>
+                        <span className="text-xl text-gray-600">/mo</span>
+                      </div>
+                      {plan.annualPrice && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-semibold">{plan.annualPrice}/yr</span>
+                            {' '}or <span className="font-semibold">{plan.annualMonthly}/mo</span> billed annually
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">Save 17% with annual billing</p>
+                        </div>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -400,14 +450,28 @@ export default function Home() {
                         </li>
                       ))}
                     </ul>
-                    <Link href="/auth/signup" className="block">
-                      <Button 
-                        variant={plan.popular ? 'primary' : 'outline'} 
-                        className="w-full py-3 text-base transition-all duration-300 hover:scale-105 active:scale-95"
+                    {plan.contactUs ? (
+                      <a 
+                        href="mailto:support@homeqr.app?subject=Team Plan Inquiry" 
+                        className="block"
                       >
-                        {plan.name === 'Team' ? 'Book Demo' : plan.name === 'Pro' ? 'Upgrade to Pro' : 'Get Started'}
-                      </Button>
-                    </Link>
+                        <Button 
+                          variant="outline" 
+                          className="w-full py-3 text-base transition-all duration-300 hover:scale-105 active:scale-95"
+                        >
+                          Contact Us
+                        </Button>
+                      </a>
+                    ) : (
+                      <Link href="/auth/signup" className="block">
+                        <Button 
+                          variant={plan.popular ? 'primary' : 'outline'} 
+                          className="w-full py-3 text-base transition-all duration-300 hover:scale-105 active:scale-95"
+                        >
+                          {plan.name === 'Pro' ? 'Get Started' : 'Get Started'}
+                        </Button>
+                      </Link>
+                    )}
                   </CardContent>
                 </Card>
               </AnimatedSection>

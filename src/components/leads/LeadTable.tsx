@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { formatDateTime, formatPhoneNumber } from '@/lib/utils/format';
 import { convertToCSV, downloadCSV } from '@/lib/utils/csv';
 import Button from '@/components/ui/Button';
 import type { Lead } from '@/types/leads';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface LeadTableProps {
   leads: (Lead & {
@@ -35,6 +36,27 @@ const STATUS_LABELS: Record<Status, string> = {
 
 export default function LeadTable({ leads, onRefresh }: LeadTableProps) {
   const [loading, setLoading] = useState(false);
+  const [hasCSVExport, setHasCSVExport] = useState(false);
+  const [checkingFeature, setCheckingFeature] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if user has CSV export feature
+    const checkFeature = async () => {
+      try {
+        const response = await fetch('/api/subscription/features?feature=csv_export');
+        if (response.ok) {
+          const data = await response.json();
+          setHasCSVExport(data.hasFeature || false);
+        }
+      } catch (error) {
+        console.error('Error checking feature:', error);
+      } finally {
+        setCheckingFeature(false);
+      }
+    };
+    checkFeature();
+  }, []);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<Status | 'all'>('all');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
@@ -189,6 +211,12 @@ export default function LeadTable({ leads, onRefresh }: LeadTableProps) {
   };
 
   const handleExport = () => {
+    if (!hasCSVExport) {
+      // Show upgrade prompt or redirect to billing
+      router.push('/dashboard/billing');
+      return;
+    }
+
     const headers = [
       'Name',
       'Email',
@@ -326,8 +354,14 @@ export default function LeadTable({ leads, onRefresh }: LeadTableProps) {
               Mark {selectedLeads.length} as Contacted
             </Button>
           )}
-          <Button onClick={handleExport} variant="outline" size="sm">
-            Export CSV
+          <Button 
+            onClick={handleExport} 
+            variant="outline" 
+            size="sm"
+            disabled={checkingFeature}
+            title={!hasCSVExport ? 'Upgrade to Pro to export leads' : 'Export leads to CSV'}
+          >
+            {checkingFeature ? 'Loading...' : hasCSVExport ? 'Export CSV' : 'Export CSV (Pro)'}
           </Button>
         </div>
       </div>

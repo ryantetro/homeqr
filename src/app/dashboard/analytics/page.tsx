@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { calculateConversionRate } from '@/lib/utils/analytics';
+import { getAnalyticsRetentionDays } from '@/lib/subscription/features';
 import ScanChart from '@/components/charts/ScanChart';
 import ConversionChart from '@/components/charts/ConversionChart';
 import TimeOfDayChart from '@/components/charts/TimeOfDayChart';
@@ -11,6 +12,7 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import TopPerformingProperties from '@/components/dashboard/TopPerformingProperties';
 import Card from '@/components/ui/Card';
 import { formatDate } from '@/lib/utils/format';
+import AnalyticsClient from '@/components/dashboard/AnalyticsClient';
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
@@ -31,16 +33,29 @@ export default async function AnalyticsPage() {
 
   const listingIds = listings?.map((l) => l.id) || [];
 
-  // Get analytics data for the last 30 days (or all time if less than 30 days of data)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // Get analytics retention days based on subscription plan
+  const retentionDays = await getAnalyticsRetentionDays(user.id);
+  
+  // Calculate date filter based on retention
+  let dateFilter: Date | null = null;
+  if (retentionDays !== null) {
+    dateFilter = new Date();
+    dateFilter.setDate(dateFilter.getDate() - retentionDays);
+  }
 
-  // Get ALL analytics data (not just last 30 days) to show complete picture
-  const { data: analytics } = await supabase
+  // Get analytics data with retention filter
+  let analyticsQuery = supabase
     .from('analytics')
     .select('*')
     .in('listing_id', listingIds)
     .order('date', { ascending: true });
+
+  // Apply date filter for Starter users (30 days)
+  if (dateFilter) {
+    analyticsQuery = analyticsQuery.gte('date', dateFilter.toISOString().split('T')[0]);
+  }
+
+  const { data: analytics } = await analyticsQuery;
 
 
   // Get all scan sessions for detailed tracking
@@ -110,8 +125,26 @@ export default async function AnalyticsPage() {
     }
   });
 
-  const chartDataArray = Object.entries(chartData)
-    .filter(([date]) => last30Days.includes(date)) // Only show last 30 days in chart
+  // Filter chart data based on retention
+  let filteredChartData = Object.entries(chartData);
+  if (retentionDays !== null && dateFilter) {
+    // For Starter users, only show data within retention period
+    filteredChartData = filteredChartData.filter(([date]) => {
+      const chartDate = new Date(date);
+      return chartDate >= dateFilter!;
+    });
+  }
+
+  const chartDataArray = filteredChartData
+    .filter(([date]) => {
+      // Always show last 30 days in chart, but data is filtered by retention
+      if (retentionDays === null) {
+        return last30Days.includes(date);
+      }
+      // For Starter users, only show dates within retention period
+      const chartDate = new Date(date);
+      return chartDate >= dateFilter! && last30Days.includes(date);
+    })
     .map(([date, values]) => ({
       date: formatDate(date),
       scans: values.scans,
@@ -301,6 +334,25 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Key Metrics */}
+      {/* Retention Notice for Starter Users */}
+      {retentionDays !== null && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-900 mb-1">
+                Analytics Retention: {retentionDays} Days
+              </p>
+              <p className="text-xs text-amber-700">
+                You&apos;re viewing analytics from the last {retentionDays} days. Upgrade to Pro for unlimited analytics retention.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
         <Card className="bg-linear-to-br from-blue-50 to-blue-100 border-blue-200">
           <div className="p-3 sm:p-4">
@@ -515,16 +567,22 @@ export default async function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2">
           <Card>
-            <div className="p-6">
+            <div className="p-6 relative">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Conversion Funnel
               </h2>
-              <ConversionFunnel
-                scans={totalScans}
-                pageViews={totalPageViews}
-                uniqueVisitors={totalUniqueVisitors}
-                leads={totalLeads}
-              />
+              <AnalyticsClient
+                feature="advanced_analytics"
+                featureName="Conversion Funnel"
+                description="View detailed conversion funnels with Pro"
+              >
+                <ConversionFunnel
+                  scans={totalScans}
+                  pageViews={totalPageViews}
+                  uniqueVisitors={totalUniqueVisitors}
+                  leads={totalLeads}
+                />
+              </AnalyticsClient>
             </div>
           </Card>
         </div>
@@ -572,7 +630,13 @@ export default async function AnalyticsPage() {
                   })()}
                 </p>
               </div>
-              <TimeOfDayChart data={timeOfDayData} />
+              <AnalyticsClient
+                feature="advanced_analytics"
+                featureName="Time of Day Chart"
+                description="View time-of-day insights with Pro"
+              >
+                <TimeOfDayChart data={timeOfDayData} />
+              </AnalyticsClient>
             </div>
           </Card>
         </div>
@@ -722,14 +786,20 @@ export default async function AnalyticsPage() {
         )}
 
         <Card>
-          <div className="p-6">
+          <div className="p-6 relative">
             <div className="flex items-center gap-2 mb-5">
               <span className="text-2xl">🏆</span>
               <h2 className="text-lg font-semibold text-gray-900">
                 Top Performing Properties
               </h2>
             </div>
-            <TopPerformingProperties performers={topPerformers} />
+            <AnalyticsClient
+              feature="advanced_analytics"
+              featureName="Top Performing Properties"
+              description="View detailed property performance insights with Pro"
+            >
+              <TopPerformingProperties performers={topPerformers} />
+            </AnalyticsClient>
           </div>
         </Card>
       </div>
