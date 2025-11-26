@@ -76,10 +76,20 @@ export default function ConversionChart({ data }: ConversionChartProps) {
 
   if (chartData.length === 0) {
     return (
-      <div className="h-80 flex items-center justify-center text-gray-500">
-        <div className="text-center">
-          <p className="text-lg font-medium mb-2">No data available</p>
-          <p className="text-sm">Start generating QR codes to see conversion rates</p>
+      <div className="h-80 flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-green-50 to-green-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No conversion data yet</h3>
+          <p className="text-sm text-gray-600 mb-1">
+            Start generating QR codes and capturing leads to see your conversion rates over time.
+          </p>
+          <p className="text-xs text-gray-500">
+            Conversion rate shows how many scans turn into leads.
+          </p>
         </div>
       </div>
     );

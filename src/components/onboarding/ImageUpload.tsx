@@ -76,7 +76,7 @@ export default function ImageUpload({
   label,
   currentUrl,
   onUpload,
-  accept = 'image/*',
+  accept = 'image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,image/*',
   maxSizeMB = 5,
 }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(currentUrl || null);

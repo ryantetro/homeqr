@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { plan, billing = 'monthly' }: { plan: PlanType; billing?: BillingCycle } = body;
+    const { plan, billing = 'monthly', promotionCode }: { plan: PlanType; billing?: BillingCycle; promotionCode?: string } = body;
 
     if (!plan || !['starter', 'pro'].includes(plan)) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
@@ -65,7 +65,12 @@ export async function POST(request: NextRequest) {
         plan: plan,
         billing: billing,
       },
-      allow_promotion_codes: true,
+      // Only use allow_promotion_codes if no promotion code is provided
+      // If promotionCode is provided, use discounts instead
+      ...(promotionCode 
+        ? { discounts: [{ promotion_code: promotionCode }] }
+        : { allow_promotion_codes: true }
+      ),
     });
 
     return NextResponse.json({ url: session.url });

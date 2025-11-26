@@ -9,8 +9,21 @@ export default function DeviceChart({ data }: DeviceChartProps) {
 
   if (total === 0) {
     return (
-      <div className="h-64 flex items-center justify-center text-gray-500">
-        No device data available
+      <div className="h-64 flex items-center justify-center">
+        <div className="text-center max-w-md px-4">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No device data available</h3>
+          <p className="text-sm text-gray-600 mb-1">
+            Device information will appear once visitors start scanning your QR codes.
+          </p>
+          <p className="text-xs text-gray-500">
+            Track whether visitors use mobile, desktop, or tablet devices.
+          </p>
+        </div>
       </div>
     );
   }

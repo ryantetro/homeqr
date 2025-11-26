@@ -52,10 +52,62 @@ export async function POST(request: NextRequest) {
           plan,
           subscription: session.subscription,
           customer: session.customer,
+          sessionId: session.id,
         });
+
+        if (!userId) {
+          console.error('[Webhook] Missing userId in checkout session metadata:', {
+            sessionId: session.id,
+            customer: session.customer,
+            metadata: session.metadata,
+          });
+          // Try to find user by customer email as fallback
+          if (session.customer) {
+            try {
+              const customer = await stripe.customers.retrieve(session.customer as string);
+              if (customer.email) {
+                const { data: user } = await supabaseAdmin
+                  .from('users')
+                  .select('id')
+                  .eq('email', customer.email)
+                  .single();
+                
+                if (user) {
+                  console.log('[Webhook] Found user by customer email:', user.id);
+                  // Continue with found userId
+                  const foundUserId = user.id;
+                  // Process with foundUserId (will be handled below if we have subscription and plan)
+                } else {
+                  console.error('[Webhook] User not found by customer email:', customer.email);
+                }
+              }
+            } catch (err) {
+              console.error('[Webhook] Error retrieving customer:', err);
+            }
+          }
+        }
 
         if (userId && plan && session.subscription) {
           try {
+            // Verify user exists in database
+            const { data: user, error: userError } = await supabaseAdmin
+              .from('users')
+              .select('id, email')
+              .eq('id', userId)
+              .single();
+
+            if (userError || !user) {
+              console.error('[Webhook] User not found in database:', {
+                userId,
+                error: userError?.message,
+                sessionId: session.id,
+                customer: session.customer,
+              });
+              throw new Error(`User ${userId} not found in database`);
+            }
+
+            console.log('[Webhook] User verified:', { userId, email: user.email });
+
             // Get subscription details to check trial status
             const subscriptionResponse = await stripe.subscriptions.retrieve(session.subscription as string);
             const subscription = subscriptionResponse as unknown as {
@@ -83,11 +135,16 @@ export async function POST(request: NextRequest) {
               : subscription.trial_start;
 
             // Check if subscription exists first (since we don't have unique constraint on stripe_subscription_id)
-            const { data: existing } = await supabaseAdmin
+            const { data: existing, error: existingError } = await supabaseAdmin
               .from('subscriptions')
-              .select('id')
+              .select('id, user_id, status')
               .eq('stripe_subscription_id', session.subscription as string)
               .maybeSingle();
+
+            if (existingError && existingError.code !== 'PGRST116') {
+              // PGRST116 is "not found" which is expected for new subscriptions
+              console.error('[Webhook] Error checking existing subscription:', existingError);
+            }
 
             const subscriptionData = {
               user_id: userId,
@@ -103,6 +160,7 @@ export async function POST(request: NextRequest) {
             let data, error;
             if (existing) {
               // Update existing
+              console.log('[Webhook] Updating existing subscription:', existing.id);
               const result = await supabaseAdmin
                 .from('subscriptions')
                 .update(subscriptionData)
@@ -113,6 +171,7 @@ export async function POST(request: NextRequest) {
               error = result.error;
             } else {
               // Insert new
+              console.log('[Webhook] Inserting new subscription');
               const result = await supabaseAdmin
                 .from('subscriptions')
                 .insert(subscriptionData)
@@ -123,17 +182,40 @@ export async function POST(request: NextRequest) {
             }
 
             if (error) {
-              console.error('[Webhook] Database upsert error:', error);
+              console.error('[Webhook] Database upsert error:', {
+                error: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint,
+                userId,
+                subscriptionId: session.subscription,
+              });
               throw new Error(`Failed to save subscription: ${error.message}`);
             }
 
-            console.log('[Webhook] Subscription saved successfully:', data);
+            console.log('[Webhook] Subscription saved successfully:', {
+              id: data?.id,
+              userId: data?.user_id,
+              status: data?.status,
+              plan: data?.plan,
+            });
           } catch (error) {
-            console.error('[Webhook] Error processing checkout.session.completed:', error);
+            console.error('[Webhook] Error processing checkout.session.completed:', {
+              error: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : undefined,
+              userId,
+              subscription: session.subscription,
+              customer: session.customer,
+            });
             throw error; // Re-throw to trigger 500 response
           }
         } else {
-          console.warn('[Webhook] Missing required data:', { userId, plan, subscription: session.subscription });
+          console.warn('[Webhook] Missing required data:', { 
+            userId: !!userId, 
+            plan: !!plan, 
+            subscription: !!session.subscription,
+            sessionId: session.id,
+          });
         }
         break;
       }

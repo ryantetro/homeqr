@@ -2,7 +2,41 @@
 
 A professional Next.js application that helps real estate agents generate QR codes for property listings, capture buyer leads, and track engagement analytics.
 
-## 🚀 Features
+## Quick Start
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Set up environment variables:**
+   ```bash
+   cp .env.local.example .env.local
+   ```
+   Fill in your Supabase and Stripe credentials.
+
+3. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Load the Chrome extension:**
+   - Go to `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked" and select the `extension/` folder
+
+## Documentation
+
+All documentation is organized in the [`docs/`](./docs/) folder:
+
+- **[Setup Guides](./docs/setup/)** - Initial setup and configuration
+- **[Stripe Integration](./docs/stripe/)** - Payment and subscription setup
+- **[Chrome Web Store](./docs/chrome-web-store/)** - Extension publishing guides
+- **[Features](./docs/features/)** - Complete feature documentation
+- **[Troubleshooting](./docs/troubleshooting/)** - Common issues and solutions
+- **[Extension Docs](./docs/extension/)** - Extension-specific documentation
+
+## Key Features
 
 - ⚡ **Next.js 16** - Latest version with App Router
 - 🎨 **Tailwind CSS v4** - Utility-first CSS framework
@@ -11,201 +45,26 @@ A professional Next.js application that helps real estate agents generate QR cod
 - 🔐 **Authentication** - Email/password auth with Supabase
 - 📱 **QR Code Generation** - Generate QR codes for listings
 - 📊 **Analytics Dashboard** - Track scans and leads
-- 💳 **Stripe Integration** - Subscription management (ready for setup)
+- 💳 **Stripe Integration** - Subscription management
 - 🧩 **Chrome Extension** - Generate QR codes from listing pages
 - 📈 **Lead Management** - Capture and export buyer leads
-- 🌙 **Dark Mode** - Built-in dark mode support
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 homeqr/
-├── src/
-│   ├── app/
-│   │   ├── api/              # API routes
-│   │   │   ├── qr/           # QR code generation
-│   │   │   ├── scan/         # Scan tracking
-│   │   │   ├── leads/        # Lead capture
-│   │   │   ├── listings/     # Listings CRUD
-│   │   │   └── stripe/       # Stripe integration
-│   │   ├── auth/             # Authentication pages
-│   │   ├── dashboard/        # Dashboard pages
-│   │   ├── listing/          # Public listing pages
-│   │   └── page.tsx          # Marketing homepage
-│   ├── components/
-│   │   ├── auth/            # Auth components
-│   │   ├── dashboard/       # Dashboard components
-│   │   ├── qr/              # QR code components
-│   │   ├── leads/           # Lead components
-│   │   ├── charts/          # Chart components
-│   │   └── ui/              # UI components
-│   ├── lib/
-│   │   ├── supabase/        # Supabase clients
-│   │   ├── stripe/          # Stripe clients
-│   │   └── utils/           # Utility functions
-│   ├── hooks/               # Custom React hooks
-│   └── types/               # TypeScript types
-├── extension/               # Chrome extension
-│   ├── manifest.json
-│   ├── popup.html
-│   ├── popup.js
-│   ├── background.js
-│   └── content.js
-├── supabase/
-│   └── schema.sql          # Database schema
-└── .env.local.example      # Environment variables template
+├── src/              # Next.js application
+├── extension/        # Chrome extension
+├── docs/             # All documentation
+├── supabase/         # Database schema and migrations
+├── scripts/          # Utility scripts
+├── sql/              # SQL scripts and utilities
+└── tests/            # Test scripts
 ```
 
-## 🛠️ Getting Started
+## Support
 
-### Prerequisites
-
-- Node.js 18+ and npm
-- Supabase account and project
-- Stripe account (for payments)
-
-### Installation
-
-1. **Clone and install dependencies:**
-
-```bash
-npm install
-```
-
-2. **Set up environment variables:**
-
-Copy `.env.local.example` to `.env.local` and fill in your values:
-
-```bash
-cp .env.local.example .env.local
-```
-
-Required variables:
-- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon key
-- `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key
-- `STRIPE_SECRET_KEY` - Your Stripe secret key (get from Stripe Dashboard → Developers → API Keys)
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Your Stripe publishable key (get from Stripe Dashboard → Developers → API Keys)
-- `STRIPE_WEBHOOK_SECRET` - Your Stripe webhook signing secret (get from Stripe Dashboard → Developers → Webhooks)
-- `STRIPE_STARTER_MONTHLY_PRICE_ID` - Price ID for Starter monthly plan (starts with `price_`)
-- `STRIPE_STARTER_ANNUAL_PRICE_ID` - Price ID for Starter annual plan (starts with `price_`)
-- `STRIPE_PRO_MONTHLY_PRICE_ID` - Price ID for Pro monthly plan (starts with `price_`)
-- `STRIPE_PRO_ANNUAL_PRICE_ID` - Price ID for Pro annual plan (starts with `price_`)
-- `NEXT_PUBLIC_SITE_URL` - Your site URL
-  - **Development**: `http://localhost:3000` (or your local IP like `http://192.168.1.44:3000`)
-  - **Production**: Your actual domain (e.g., `https://homeqr.app`)
-  - **Important**: This is used as a fallback when generating QR codes. The app will automatically use the request host when available to ensure cookies work correctly across different domains.
-- `NEXT_PUBLIC_CHROME_WEB_STORE_URL` - (Optional) Chrome Web Store URL for the extension
-  - **Production**: Your Chrome Web Store listing URL (e.g., `https://chrome.google.com/webstore/detail/homeqr/...`)
-  - **Development**: Leave unset to show manual installation instructions
-  - When set, users will see a one-click install button from the Chrome Web Store
-- `GEMINI_API_KEY` - Google Gemini API key for AI enhancements
-  - Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-  - Used to automatically enhance listings with AI-generated descriptions, features, and social media captions
-
-3. **Set up Supabase database:**
-
-Run the SQL schema in `supabase/schema.sql` in your Supabase SQL Editor.
-
-4. **Set up Stripe (Optional but recommended):**
-
-See `STRIPE_SETUP.md` for complete Stripe integration setup instructions. Quick setup:
-
-- Create products and prices in Stripe Dashboard
-- Set up webhook endpoint
-- Enable Customer Portal
-- Add all Stripe environment variables to `.env.local`
-
-**Test cards:**
-- Success: `4242 4242 4242 4242`
-- Decline: `4000 0000 0000 0002`
-
-5. **Run the development server:**
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## 📦 Chrome Extension Setup
-
-1. **Load the extension:**
-
-- Open Chrome and navigate to `chrome://extensions/`
-- Enable "Developer mode"
-- Click "Load unpacked"
-- Select the `extension/` folder
-
-2. **Configure the extension:**
-
-- The extension will detect listing pages on Zillow, Realtor.com, and Sonder Group sites
-- Click the extension icon to generate QR codes
-
-## 🔧 API Endpoints
-
-- `POST /api/qr` - Generate QR code for a listing
-- `GET /api/scan/[id]` - Track QR code scan and redirect
-- `POST /api/leads` - Capture lead form submission
-- `GET /api/listings` - Fetch user's listings
-- `POST /api/listings` - Create new listing
-- `PUT /api/listings` - Update listing
-- `DELETE /api/listings` - Delete listing
-- `POST /api/stripe/checkout` - Create Stripe checkout session
-- `POST /api/stripe/webhook` - Handle Stripe webhook events
-
-## 📝 Database Schema
-
-The database includes tables for:
-- `users` - User profiles
-- `listings` - Property listings
-- `qrcodes` - QR code records
-- `leads` - Captured buyer leads
-- `analytics` - Daily aggregated data
-- `subscriptions` - Stripe subscription tracking
-
-See `supabase/schema.sql` for the complete schema with RLS policies.
-
-## 🎯 Key Features
-
-### For Realtors
-
-- Create listings with property details
-- Generate QR codes for each listing
-- Track QR code scans and engagement
-- Capture buyer leads from QR scans
-- View analytics and performance metrics
-- Export leads to CSV
-- Manage profile and subscription
-
-### For Buyers
-
-- Scan QR codes to view property details
-- Submit contact information
-- Request property information
-
-## 🚢 Deployment
-
-### Vercel (Recommended)
-
-1. Push your code to GitHub
-2. Import project in Vercel
-3. Add environment variables
-4. Deploy
-
-### Environment Variables for Production
-
-Make sure to set all required environment variables in your deployment platform.
-
-**Critical for Production:**
-- `NEXT_PUBLIC_SITE_URL` must be set to your actual production domain (e.g., `https://homeqr.app`)
-- Do NOT use IP addresses in production - use your actual domain name
-- This ensures QR codes point to the correct domain and cookies work properly
-
-## 📄 License
-
-This project is private and proprietary.
-
-## 🤝 Support
+For detailed documentation, see the [`docs/`](./docs/) folder.
 
 For issues or questions, please contact the development team.
+

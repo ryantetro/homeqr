@@ -62,9 +62,19 @@ export default function ConversionFunnel({
   if (totalTraffic === 0) {
     return (
       <div className="flex items-center justify-center h-80">
-        <div className="text-center">
-          <p className="text-gray-500 text-sm">No conversion data available yet</p>
-          <p className="text-gray-400 text-xs mt-1">Start tracking to see your funnel</p>
+        <div className="text-center max-w-md px-4">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No conversion data available yet</h3>
+          <p className="text-sm text-gray-600 mb-1">
+            Start tracking traffic and capturing leads to see your conversion funnel.
+          </p>
+          <p className="text-xs text-gray-500">
+            The funnel shows how visitors move from traffic to leads.
+          </p>
         </div>
       </div>
     );

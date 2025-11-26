@@ -19,18 +19,18 @@ const Footer = () => {
             © {new Date().getFullYear()} HomeQR. All rights reserved.
           </p>
           <div className="flex gap-6">
-            <a
-              href="#"
+            <Link
+              href="/privacy"
               className="text-sm text-gray-600 transition-colors hover:text-gray-900"
             >
               Privacy
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
+              href="/terms"
               className="text-sm text-gray-600 transition-colors hover:text-gray-900"
             >
               Terms
-            </a>
+            </Link>
           </div>
         </div>
       </div>

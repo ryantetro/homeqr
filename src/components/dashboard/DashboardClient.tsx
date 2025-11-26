@@ -54,6 +54,43 @@ export default function DashboardClient({
         !trialActivated &&
         !shouldShowExpired;
 
+    // Poll for subscription status if trial was activated but subscription not found yet
+    // This handles webhook timing delays
+    if (trialActivated && !subscription && !isBetaUser) {
+      let pollCount = 0;
+      const maxPolls = 15; // 15 polls * 2 seconds = 30 seconds max
+      
+      const pollInterval = setInterval(async () => {
+        pollCount++;
+        
+        try {
+          const response = await fetch('/api/subscription/status');
+          if (response.ok) {
+            const data = await response.json();
+            const subStatus = data.subscription?.status;
+            
+            // If subscription found with active or trialing status, reload page
+            if (subStatus === 'trialing' || subStatus === 'active') {
+              clearInterval(pollInterval);
+              // Reload to get updated subscription data from server
+              window.location.href = '/dashboard?trial=activated';
+              return;
+            }
+          }
+        } catch (error) {
+          console.error('[Dashboard] Error polling subscription status:', error);
+        }
+        
+        // Stop polling after max attempts
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+        }
+      }, 2000); // Poll every 2 seconds
+      
+      // Cleanup on unmount
+      return () => clearInterval(pollInterval);
+    }
+
     // Defer state updates to avoid cascading renders
     queueMicrotask(() => {
       if (trialActivated) {

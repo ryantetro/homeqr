@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
+import { stripe } from '@/lib/stripe/server';
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { calculateConversionRate } from '@/lib/utils/analytics';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import ExtensionLink from '@/components/dashboard/ExtensionLink';
@@ -33,12 +35,118 @@ export default async function DashboardPage() {
 
   // Check for active subscription (trial or paid)
   // Note: trial_started_at column may not exist if migration hasn't been run
-  const { data: subscription, error: subscriptionError } = await supabase
+  let { data: subscription, error: subscriptionError } = await supabase
     .from('subscriptions')
     .select('status, plan, current_period_start, current_period_end')
     .eq('user_id', user.id)
     .in('status', ['active', 'trialing', 'past_due'])
     .maybeSingle();
+
+  // If no subscription found in database, check Stripe automatically
+  // This handles cases where webhook hasn't fired yet or failed
+  if (!subscription && stripe && user.email && !userData?.is_beta_user) {
+    try {
+      // Look up customer in Stripe by email
+      const customers = await stripe.customers.list({
+        email: user.email,
+        limit: 1,
+      });
+
+      if (customers.data.length > 0) {
+        const customer = customers.data[0];
+        
+        // Get active subscriptions for this customer
+        const stripeSubscriptions = await stripe.subscriptions.list({
+          customer: customer.id,
+          status: 'all',
+          limit: 10,
+        });
+
+        // Find active or trialing subscriptions
+        const activeSubscription = stripeSubscriptions.data.find(
+          (sub) => ['active', 'trialing', 'past_due'].includes(sub.status)
+        );
+
+        if (activeSubscription) {
+          // Sync subscription to database
+          const supabaseAdmin = createSupabaseAdmin(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+          );
+
+          // Determine plan from price ID
+          const priceId = activeSubscription.items.data[0]?.price?.id;
+          let plan: 'starter' | 'pro' = 'starter';
+          if (priceId) {
+            const proMonthlyId = process.env.STRIPE_PRO_MONTHLY_PRICE_ID;
+            const proAnnualId = process.env.STRIPE_PRO_ANNUAL_PRICE_ID;
+            if (priceId === proMonthlyId || priceId === proAnnualId) {
+              plan = 'pro';
+            }
+          }
+
+          const periodEnd = activeSubscription.current_period_end 
+            ? new Date(activeSubscription.current_period_end * 1000).toISOString()
+            : activeSubscription.trial_end 
+            ? new Date(activeSubscription.trial_end * 1000).toISOString()
+            : null;
+          
+          const periodStart = activeSubscription.current_period_start
+            ? new Date(activeSubscription.current_period_start * 1000).toISOString()
+            : activeSubscription.trial_start
+            ? new Date(activeSubscription.trial_start * 1000).toISOString()
+            : null;
+
+          // Check if subscription already exists
+          const { data: existing } = await supabaseAdmin
+            .from('subscriptions')
+            .select('id')
+            .eq('stripe_subscription_id', activeSubscription.id)
+            .maybeSingle();
+
+          const subscriptionData = {
+            user_id: user.id,
+            stripe_customer_id: customer.id,
+            stripe_subscription_id: activeSubscription.id,
+            status: activeSubscription.status === 'trialing' ? 'trialing' : activeSubscription.status,
+            plan: plan,
+            current_period_start: periodStart,
+            current_period_end: periodEnd,
+          };
+
+          if (existing) {
+            // Update existing
+            const { data: updated } = await supabaseAdmin
+              .from('subscriptions')
+              .update(subscriptionData)
+              .eq('stripe_subscription_id', activeSubscription.id)
+              .select('status, plan, current_period_start, current_period_end')
+              .single();
+            
+            if (updated) {
+              subscription = updated;
+              console.log('[Dashboard] Auto-synced existing subscription from Stripe');
+            }
+          } else {
+            // Insert new
+            const { data: inserted } = await supabaseAdmin
+              .from('subscriptions')
+              .insert(subscriptionData)
+              .select('status, plan, current_period_start, current_period_end')
+              .single();
+            
+            if (inserted) {
+              subscription = inserted;
+              console.log('[Dashboard] Auto-synced new subscription from Stripe');
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Log error but don't fail the page load
+      console.error('[Dashboard] Error auto-syncing subscription from Stripe:', error);
+    }
+  }
 
   // Debug logging (remove in production)
   if (process.env.NODE_ENV === 'development') {

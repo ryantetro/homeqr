@@ -54,9 +54,19 @@ export default function LeadSourceChart({ data }: LeadSourceChartProps) {
   if (totalVisits === 0 && totalLeads === 0) {
     return (
       <div className="h-64 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500 text-sm">No traffic data yet</p>
-          <p className="text-gray-400 text-xs mt-1">Start generating QR codes to see traffic</p>
+        <div className="text-center max-w-md px-4">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No traffic data yet</h3>
+          <p className="text-sm text-gray-600 mb-1">
+            Start generating QR codes and sharing your listings to see where your traffic comes from.
+          </p>
+          <p className="text-xs text-gray-500">
+            Track QR scans, direct links, referrals, and other traffic sources.
+          </p>
         </div>
       </div>
     );

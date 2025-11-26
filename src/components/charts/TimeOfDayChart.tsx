@@ -54,9 +54,19 @@ export default function TimeOfDayChart({ data }: TimeOfDayChartProps) {
   if (totalActivity === 0) {
     return (
       <div className="h-80 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500 text-sm">No activity data yet</p>
-          <p className="text-gray-400 text-xs mt-1">Activity will appear as visitors interact</p>
+        <div className="text-center max-w-md px-4">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No activity data yet</h3>
+          <p className="text-sm text-gray-600 mb-1">
+            Activity patterns will appear once visitors start scanning your QR codes and viewing your listings.
+          </p>
+          <p className="text-xs text-gray-500">
+            See when your visitors are most active throughout the day.
+          </p>
         </div>
       </div>
     );

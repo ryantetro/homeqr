@@ -377,17 +377,17 @@ export default function Home() {
                 name: 'Starter', 
                 price: '$29', 
                 annualPrice: '$290',
-                annualMonthly: '$24.17',
+                annualMonthly: '$24',
                 features: [
                   'Unlimited QR codes',
                   'Unlimited listings',
                   'Unlimited photos',
-                  'Basic analytics dashboard',
-                  'Lead capture forms',
-                  'Property microsites',
-                  'AI-enhanced listings',
-                  'Chrome extension',
-                  '30-day analytics retention'
+                  'Basic analytics',
+                  'Lead forms',
+                  'Microsites',
+                  'AI listings',
+                  'Extension',
+                  '30-day retention'
                 ], 
                 popular: false 
               },
@@ -395,25 +395,27 @@ export default function Home() {
                 name: 'Pro', 
                 price: '$49', 
                 annualPrice: '$490',
-                annualMonthly: '$40.83',
+                annualMonthly: '$41',
                 features: [
                   'Everything in Starter',
-                  'Advanced analytics (conversion funnels, time-of-day charts)',
-                  'CSV lead export',
-                  'Unlimited analytics retention'
+                  'Advanced analytics — funnels, insights',
+                  'Export CSV',
+                  'Unlimited retention'
                 ], 
                 popular: true 
               },
               { 
-                name: 'Team', 
-                price: '$299', 
+                name: 'Pro Annual', 
+                price: '$490', 
+                period: '/yr',
+                annualMonthly: '$41',
                 features: [
-                  'Up to 10 agents',
-                  'Shared analytics',
+                  'Everything in Pro',
+                  'Best value',
                   'Priority support'
                 ], 
                 popular: false,
-                contactUs: true
+                saveBadge: 'Save 25%'
               },
             ].map((plan, index) => (
               <AnimatedSection key={index} delay={index * 150}>
@@ -423,20 +425,31 @@ export default function Home() {
                       Popular
                     </div>
                   )}
-                  <CardHeader className={`pb-6 ${plan.popular ? 'pt-8' : ''}`}>
+                  <CardHeader className={`pb-6 ${plan.popular ? 'pt-8' : plan.saveBadge ? 'pt-8' : ''} relative`}>
+                    {plan.saveBadge && (
+                      <div className="absolute top-4 right-4 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
+                        {plan.saveBadge}
+                      </div>
+                    )}
                     <CardTitle className="text-2xl font-semibold mb-6">{plan.name}</CardTitle>
                     <div className="mb-8">
                       <div className="flex items-baseline gap-2">
                         <span className={`text-5xl font-bold ${plan.popular ? 'text-blue-600' : 'text-gray-900'}`}>{plan.price}</span>
-                        <span className="text-xl text-gray-600">/mo</span>
+                        <span className="text-xl text-gray-600">{plan.period || '/mo'}</span>
                       </div>
-                      {plan.annualPrice && (
+                      {plan.annualMonthly && plan.period === '/yr' && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-semibold">{plan.annualMonthly}/mo</span> billed annually
+                          </p>
+                        </div>
+                      )}
+                      {plan.annualPrice && !plan.period && (
                         <div className="mt-2">
                           <p className="text-sm text-gray-600">
                             <span className="font-semibold">{plan.annualPrice}/yr</span>
                             {' '}or <span className="font-semibold">{plan.annualMonthly}/mo</span> billed annually
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">Save 17% with annual billing</p>
                         </div>
                       )}
                     </div>
@@ -450,28 +463,14 @@ export default function Home() {
                         </li>
                       ))}
                     </ul>
-                    {plan.contactUs ? (
-                      <a 
-                        href="mailto:support@homeqr.app?subject=Team Plan Inquiry" 
-                        className="block"
+                    <Link href="/auth/signup" className="block">
+                      <Button 
+                        variant={plan.popular ? 'primary' : 'outline'} 
+                        className="w-full py-3 text-base transition-all duration-300 hover:scale-105 active:scale-95"
                       >
-                        <Button 
-                          variant="outline" 
-                          className="w-full py-3 text-base transition-all duration-300 hover:scale-105 active:scale-95"
-                        >
-                          Contact Us
-                        </Button>
-                      </a>
-                    ) : (
-                      <Link href="/auth/signup" className="block">
-                        <Button 
-                          variant={plan.popular ? 'primary' : 'outline'} 
-                          className="w-full py-3 text-base transition-all duration-300 hover:scale-105 active:scale-95"
-                        >
-                          {plan.name === 'Pro' ? 'Get Started' : 'Get Started'}
-                        </Button>
-                      </Link>
-                    )}
+                        Get Started
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
               </AnimatedSection>

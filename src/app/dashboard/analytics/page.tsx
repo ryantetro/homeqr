@@ -679,26 +679,32 @@ export default async function AnalyticsPage() {
         </div>
       </Card>
 
-      {/* Performance by Location & Top Properties */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {Object.keys(geographicInsights).length > 0 && (
-          <Card>
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-5">
-                <span className="text-2xl">📍</span>
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Performance by Location
-                </h2>
-              </div>
-              <div className="space-y-3">
-                {(() => {
-                  const locationsWithActivity = Object.entries(geographicInsights)
-                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                    .filter(([_location, data]) => {
-                      // Only show locations with actual activity
-                      return (data.scans > 0 || data.leads > 0);
-                    })
-                    .sort((a, b) => {
+      {/* Performance by Location */}
+      {Object.keys(geographicInsights).length > 0 && (
+        <Card className="mb-6">
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <span className="text-2xl">📍</span>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Performance by Location
+              </h2>
+            </div>
+            <div className="space-y-3">
+              {(() => {
+                const locationsWithActivity = Object.entries(geographicInsights)
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  .filter(([_location, data]) => {
+                    // Only show locations with actual activity
+                    return (data.scans > 0 || data.leads > 0);
+                  })
+                  .map(([location, data]) => {
+                    return [location, {
+                      scans: data.scans || 0,
+                      leads: data.leads || 0,
+                      listings: data.listings || 0,
+                    }];
+                  })
+                  .sort((a, b) => {
                       // Deprioritize "Unknown" location
                       if (a[0] === 'Unknown' && b[0] !== 'Unknown') return 1;
                       if (b[0] === 'Unknown' && a[0] !== 'Unknown') return -1;
@@ -782,9 +788,11 @@ export default async function AnalyticsPage() {
                 })()}
               </div>
             </div>
-          </Card>
-        )}
+        </Card>
+      )}
 
+      {/* Top Performing Properties & Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card>
           <div className="p-6 relative">
             <div className="flex items-center gap-2 mb-5">
@@ -802,21 +810,20 @@ export default async function AnalyticsPage() {
             </AnalyticsClient>
           </div>
         </Card>
-      </div>
 
-      {/* Recent Activity - Full Width */}
-      <Card className="mb-6">
-        <div className="p-6">
-          <div className="flex items-center gap-2 mb-5">
-            <span className="text-2xl">⚡</span>
-            <h2 className="text-lg font-semibold text-gray-900">
-              Recent Activity
-            </h2>
-            <span className="ml-auto text-xs text-gray-500">Live updates</span>
+        <Card>
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-5">
+              <span className="text-2xl">⚡</span>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Recent Activity
+              </h2>
+              <span className="ml-auto text-xs text-gray-500">Live updates</span>
+            </div>
+            <ActivityFeed />
           </div>
-          <ActivityFeed />
-        </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
