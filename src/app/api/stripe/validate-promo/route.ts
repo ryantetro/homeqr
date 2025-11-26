@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/server';
+import type Stripe from 'stripe';
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,13 +70,11 @@ export async function POST(request: NextRequest) {
     }
     
     // Get coupon from promotion object (newer Stripe API uses 'promotion' property)
-    let coupon;
+    let coupon: Stripe.Coupon | null = null;
     
-    if (promotionCode.promotion) {
-      // New API structure: promotion.promotion contains the coupon
-      const promotion = typeof promotionCode.promotion === 'string' 
-        ? await stripe.promotions.retrieve(promotionCode.promotion, { expand: ['coupon'] })
-        : promotionCode.promotion;
+    if (promotionCode.promotion && typeof promotionCode.promotion !== 'string') {
+      // Promotion is already expanded
+      const promotion = promotionCode.promotion as { coupon?: string | Stripe.Coupon };
       
       if (promotion.coupon) {
         coupon = typeof promotion.coupon === 'string'
@@ -83,22 +82,44 @@ export async function POST(request: NextRequest) {
           : promotion.coupon;
         console.log(`[Promo Validation] Retrieved coupon "${coupon.id}" from promotion for code "${promotionCode.code}"`);
       } else {
-        console.error(`[Promo Validation] Promotion "${promotion.id}" has no coupon`);
+        console.error(`[Promo Validation] Promotion has no coupon`);
       }
-    } else if (promotionCode.coupon) {
-      // Legacy API structure: coupon directly on promotion code
-      coupon = typeof promotionCode.coupon === 'string'
-        ? await stripe.coupons.retrieve(promotionCode.coupon)
-        : promotionCode.coupon;
-      console.log(`[Promo Validation] Retrieved coupon "${coupon.id}" directly for code "${promotionCode.code}"`);
+    } else if (promotionCode.promotion && typeof promotionCode.promotion === 'string') {
+      // Promotion is just an ID string, retrieve the promotion code again with proper expansion
+      const expandedPromoCode = await stripe.promotionCodes.retrieve(matched.id, {
+        expand: ['promotion.coupon'],
+      });
+      
+      if (expandedPromoCode.promotion && typeof expandedPromoCode.promotion !== 'string') {
+        const promotion = expandedPromoCode.promotion as { coupon?: string | Stripe.Coupon };
+        if (promotion.coupon) {
+          coupon = typeof promotion.coupon === 'string'
+            ? await stripe.coupons.retrieve(promotion.coupon)
+            : promotion.coupon;
+          console.log(`[Promo Validation] Retrieved coupon "${coupon.id}" from expanded promotion for code "${expandedPromoCode.code}"`);
+        }
+      }
+    }
+    
+    // Fallback: check for coupon directly on promotion code (legacy API)
+    if (!coupon) {
+      const promoCodeWithCoupon = promotionCode as { coupon?: string | Stripe.Coupon };
+      if (promoCodeWithCoupon.coupon) {
+        const directCoupon = promoCodeWithCoupon.coupon;
+        coupon = typeof directCoupon === 'string'
+          ? await stripe.coupons.retrieve(directCoupon)
+          : directCoupon;
+        console.log(`[Promo Validation] Retrieved coupon "${coupon.id}" directly for code "${promotionCode.code}"`);
+      }
     }
     
     if (!coupon) {
+      const promoCodeForLog = promotionCode as { coupon?: string | Stripe.Coupon };
       console.error(`[Promo Validation] No coupon found for promotion code "${promotionCode.code}". Available properties:`, {
         id: promotionCode.id,
         code: promotionCode.code,
         hasPromotion: !!promotionCode.promotion,
-        hasCoupon: !!promotionCode.coupon,
+        hasCoupon: !!promoCodeForLog.coupon,
         promotionType: promotionCode.promotion ? typeof promotionCode.promotion : 'none',
       });
       return NextResponse.json(

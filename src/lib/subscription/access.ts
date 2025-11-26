@@ -28,7 +28,7 @@ export async function checkUserAccess(userId: string): Promise<AccessResult> {
   // Get subscription status
   const { data: subscription } = await supabase
     .from('subscriptions')
-    .select('id, status, plan, current_period_end')
+    .select('id, status, plan, current_period_end, trial_started_at')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -53,6 +53,7 @@ export async function checkUserAccess(userId: string): Promise<AccessResult> {
         status: subscription.status as SubscriptionStatus,
         plan: subscription.plan,
         current_period_end: subscription.current_period_end,
+        trial_started_at: subscription.trial_started_at || null,
       },
     };
   }
@@ -67,6 +68,7 @@ export async function checkUserAccess(userId: string): Promise<AccessResult> {
         status: subscription.status as SubscriptionStatus,
         plan: subscription.plan,
         current_period_end: subscription.current_period_end,
+        trial_started_at: subscription.trial_started_at || null,
       },
     };
   }
@@ -81,6 +83,7 @@ export async function checkUserAccess(userId: string): Promise<AccessResult> {
         status: subscription.status as SubscriptionStatus,
         plan: subscription.plan,
         current_period_end: subscription.current_period_end,
+        trial_started_at: subscription.trial_started_at || null,
       },
     };
   }
@@ -98,6 +101,7 @@ export async function checkUserAccess(userId: string): Promise<AccessResult> {
           status: subscription.status as SubscriptionStatus,
           plan: subscription.plan,
           current_period_end: subscription.current_period_end,
+          trial_started_at: subscription.trial_started_at || null,
         },
       };
     }
@@ -112,7 +116,7 @@ export async function checkUserAccess(userId: string): Promise<AccessResult> {
       status: subscription.status as SubscriptionStatus,
       plan: subscription.plan,
       current_period_end: subscription.current_period_end,
-      trial_started_at: subscription.trial_started_at,
+      trial_started_at: subscription.trial_started_at || null,
     },
   };
 }

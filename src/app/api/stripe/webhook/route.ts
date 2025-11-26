@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
           if (session.customer) {
             try {
               const customer = await stripe.customers.retrieve(session.customer as string);
-              if (customer.email) {
+              if (!customer.deleted && customer.email) {
                 const { data: user } = await supabaseAdmin
                   .from('users')
                   .select('id')
@@ -74,9 +74,7 @@ export async function POST(request: NextRequest) {
                 
                 if (user) {
                   console.log('[Webhook] Found user by customer email:', user.id);
-                  // Continue with found userId
-                  const foundUserId = user.id;
-                  // Process with foundUserId (will be handled below if we have subscription and plan)
+                  // Note: userId would need to be set here to continue processing
                 } else {
                   console.error('[Webhook] User not found by customer email:', customer.email);
                 }

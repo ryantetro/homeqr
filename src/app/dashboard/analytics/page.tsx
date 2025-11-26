@@ -691,7 +691,7 @@ export default async function AnalyticsPage() {
             </div>
             <div className="space-y-3">
               {(() => {
-                const locationsWithActivity = Object.entries(geographicInsights)
+                const locationsWithActivity: Array<[string, { scans: number; leads: number; listings: number }]> = Object.entries(geographicInsights)
                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   .filter(([_location, data]) => {
                     // Only show locations with actual activity
@@ -702,7 +702,7 @@ export default async function AnalyticsPage() {
                       scans: data.scans || 0,
                       leads: data.leads || 0,
                       listings: data.listings || 0,
-                    }];
+                    }] as [string, { scans: number; leads: number; listings: number }];
                   })
                   .sort((a, b) => {
                       // Deprioritize "Unknown" location

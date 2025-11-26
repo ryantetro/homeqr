@@ -35,12 +35,14 @@ export default async function DashboardPage() {
 
   // Check for active subscription (trial or paid)
   // Note: trial_started_at column may not exist if migration hasn't been run
-  let { data: subscription, error: subscriptionError } = await supabase
+  const { data: initialSubscription, error: subscriptionError } = await supabase
     .from('subscriptions')
     .select('status, plan, current_period_start, current_period_end')
     .eq('user_id', user.id)
     .in('status', ['active', 'trialing', 'past_due'])
     .maybeSingle();
+  
+  let subscription = initialSubscription;
 
   // If no subscription found in database, check Stripe automatically
   // This handles cases where webhook hasn't fired yet or failed
@@ -63,11 +65,27 @@ export default async function DashboardPage() {
         });
 
         // Find active or trialing subscriptions
-        const activeSubscription = stripeSubscriptions.data.find(
+        const foundSubscription = stripeSubscriptions.data.find(
           (sub) => ['active', 'trialing', 'past_due'].includes(sub.status)
         );
 
-        if (activeSubscription) {
+        if (foundSubscription) {
+          const activeSubscription = foundSubscription as unknown as {
+            id: string;
+            status: string;
+            current_period_start: number;
+            current_period_end: number;
+            trial_start: number | null;
+            trial_end: number | null;
+            items: {
+              data: Array<{
+                price?: {
+                  id: string;
+                };
+              }>;
+            };
+          };
+
           // Sync subscription to database
           const supabaseAdmin = createSupabaseAdmin(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
