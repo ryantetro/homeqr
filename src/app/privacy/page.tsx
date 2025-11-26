@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">Introduction</h2>
               <p className="text-gray-700 leading-relaxed">
-                HomeQR ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Chrome extension, website, and services (collectively, the "Service").
+                HomeQR (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Chrome extension, website, and services (collectively, the &quot;Service&quot;).
               </p>
               <p className="text-gray-700 leading-relaxed mt-4">
                 By using our Service, you agree to the collection and use of information in accordance with this policy. If you do not agree with our policies and practices, please do not use our Service.
@@ -153,7 +153,7 @@ export default function PrivacyPage() {
                 <li>Database access is protected by Row-Level Security (RLS) policies</li>
                 <li>Regular security audits and updates</li>
                 <li>Access controls to limit employee access to user data</li>
-              </p>
+              </ul>
               <p className="text-gray-700 leading-relaxed mt-4">
                 However, no method of transmission over the Internet or electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your information, we cannot guarantee absolute security.
               </p>
@@ -209,7 +209,7 @@ export default function PrivacyPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Children's Privacy</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Children&apos;s Privacy</h2>
               <p className="text-gray-700 leading-relaxed">
                 Our Service is not intended for children under the age of 18. We do not knowingly collect personal information from children. If you believe we have collected information from a child, please contact us immediately and we will delete such information.
               </p>
@@ -225,7 +225,7 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">Changes to This Privacy Policy</h2>
               <p className="text-gray-700 leading-relaxed">
-                We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new Privacy Policy on this page and updating the "Last updated" date. You are advised to review this Privacy Policy periodically for any changes.
+                We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new Privacy Policy on this page and updating the &quot;Last updated&quot; date. You are advised to review this Privacy Policy periodically for any changes.
               </p>
             </section>
 
