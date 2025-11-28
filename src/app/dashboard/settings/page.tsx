@@ -207,19 +207,36 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">Current Plan</p>
                   <p className="text-xs text-gray-600 capitalize mt-1">
-                    {subscription.plan === 'starter' ? 'Starter' : subscription.plan === 'pro' ? 'Pro' : subscription.plan}
+                    HomeQR Plan
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900 capitalize">
-                    {subscription.status === 'trialing' ? 'Free Trial' : 
-                     subscription.status === 'active' ? 'Active' : 
-                     subscription.status === 'past_due' ? 'Past Due' : 
-                     subscription.status}
+                    {(() => {
+                      // Check if period has ended even if status is trialing
+                      if (subscription.current_period_end) {
+                        const endDate = new Date(subscription.current_period_end);
+                        const now = new Date();
+                        if (endDate < now && subscription.status === 'trialing') {
+                          return 'Trial Expired';
+                        }
+                      }
+                      return subscription.status === 'trialing' ? 'Free Trial' : 
+                             subscription.status === 'active' ? 'Active' : 
+                             subscription.status === 'past_due' ? 'Payment Required' : 
+                             subscription.status;
+                    })()}
                   </p>
                   {subscription.current_period_end && (
                     <p className="text-xs text-gray-600 mt-1">
-                      {subscription.status === 'trialing' ? 'Trial ends' : 'Renews'} {new Date(subscription.current_period_end).toLocaleDateString()}
+                      {(() => {
+                        const endDate = new Date(subscription.current_period_end);
+                        const now = new Date();
+                        if (endDate < now) {
+                          return 'Expired';
+                        }
+                        return subscription.status === 'trialing' ? 'Trial ends' : 'Renews';
+                      })()} {new Date(subscription.current_period_end).toLocaleDateString()}
                     </p>
                   )}
                 </div>

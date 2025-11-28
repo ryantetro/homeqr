@@ -100,6 +100,8 @@ export async function getRemainingTrialUsage(
 
 /**
  * Check if user has reached trial limit for a feature
+ * NOTE: All limits are now unlimited - this function always returns allowed: true
+ * Usage tracking is kept for analytics purposes only
  */
 export async function checkTrialLimit(
   userId: string,
@@ -109,11 +111,12 @@ export async function checkTrialLimit(
   const current = await getTrialUsage(userId, feature);
   const remaining = Math.max(0, limit - current);
 
+  // All limits are now unlimited - always allow
   return {
-    allowed: current < limit,
+    allowed: true,
     current,
-    limit,
-    remaining,
+    limit: Infinity, // Show as unlimited
+    remaining: Infinity,
   };
 }
 

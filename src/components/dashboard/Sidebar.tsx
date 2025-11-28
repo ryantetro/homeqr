@@ -74,7 +74,10 @@ export default function Sidebar() {
       {/* Mobile Hamburger Button */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 transition-colors"
+        className={cn(
+          "md:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md border border-gray-200 hover:bg-gray-50 transition-all duration-300",
+          isMobileMenuOpen && "opacity-0 pointer-events-none"
+        )}
         aria-label="Toggle menu"
       >
         <svg
@@ -83,11 +86,7 @@ export default function Sidebar() {
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          {isMobileMenuOpen ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          )}
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
 
@@ -110,7 +109,7 @@ export default function Sidebar() {
         <div className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 flex flex-col pt-6 pb-4 overflow-y-auto">
             {/* Logo Section */}
-            <div className="flex items-center shrink-0 px-3 mb-6">
+            <div className="flex items-center justify-between shrink-0 px-3 mb-6">
               <Link href="/dashboard" className="flex items-center gap-2" onClick={closeMobileMenu}>
                 <Image
                   src="/logo.png"
@@ -121,6 +120,21 @@ export default function Sidebar() {
                 />
                 <span className="text-base font-semibold text-gray-900">HomeQR</span>
               </Link>
+              {/* Close button for mobile */}
+              <button
+                onClick={closeMobileMenu}
+                className="md:hidden p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+                aria-label="Close menu"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
             
             {/* Navigation */}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe/server';
-import { getPriceId, type PlanType, type BillingCycle } from '@/lib/stripe/prices';
+import { getPriceId, type BillingCycle } from '@/lib/stripe/prices';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,17 +26,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { plan, billing = 'monthly', promotionCode }: { plan: PlanType; billing?: BillingCycle; promotionCode?: string } = body;
-
-    if (!plan || !['starter', 'pro'].includes(plan)) {
-      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
-    }
+    const { billing = 'monthly', promotionCode }: { billing?: BillingCycle; promotionCode?: string } = body;
 
     if (!['monthly', 'annual'].includes(billing)) {
       return NextResponse.json({ error: 'Invalid billing cycle' }, { status: 400 });
     }
 
-    const priceId = getPriceId(plan, billing);
+    const priceId = getPriceId(billing);
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
     // Create checkout session with 14-day free trial
@@ -54,7 +50,7 @@ export async function POST(request: NextRequest) {
         trial_period_days: 14,
         metadata: {
           userId: user.id,
-          plan: plan,
+          plan: 'homeqr', // Single plan
           billing: billing,
         },
       },
@@ -62,7 +58,7 @@ export async function POST(request: NextRequest) {
       cancel_url: `${siteUrl}/dashboard?trial=canceled`,
       metadata: {
         userId: user.id,
-        plan: plan,
+        plan: 'homeqr', // Single plan
         billing: billing,
       },
       // Only use allow_promotion_codes if no promotion code is provided

@@ -1,0 +1,24 @@
+# Example URLs for testing extraction
+# Add one URL per line
+# Lines starting with # are ignored
+
+# Zillow examples (replace with real URLs)
+# https://www.zillow.com/homedetails/123-Main-St-City-ST-12345/12345678_zpid/
+
+# Realtor.com examples (replace with real URLs)
+# https://www.realtor.com/realestateandhomes-detail/123-Main-St_City_ST_12345_M12345_12345
+
+# Redfin examples (replace with real URLs)
+# https://www.redfin.com/...
+
+# Homes.com examples (replace with real URLs)
+# https://www.homes.com/...
+
+# Trulia examples (replace with real URLs)
+# https://www.trulia.com/...
+
+# UtahRealEstate.com examples (replace with real URLs)
+# https://www.utahrealestate.com/...
+
+
+

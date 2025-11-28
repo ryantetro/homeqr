@@ -56,7 +56,7 @@ export default async function BillingPage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Plan</h3>
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
-                    <p className="font-semibold text-gray-900 capitalize">{subscription.plan} Plan</p>
+                    <p className="font-semibold text-gray-900">HomeQR Plan</p>
                     <p className="text-sm text-gray-600">
                       Status: <span className="capitalize font-medium">{subscription.status}</span>
                     </p>

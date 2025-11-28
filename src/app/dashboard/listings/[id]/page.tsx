@@ -68,64 +68,75 @@ export default async function ListingDetailPage({
   const displayScans = totalScans;
   const displayLeads = Math.max(totalLeadsFromAnalytics, leads.length);
 
-  // Parse images - check if image_url is a JSON array or single URL
+  // Parse images - handle multiple formats: JSON array string, array object, or single URL string
   let allImages: string[] = [];
-  try {
-    if (listing.image_url) {
-      const parsed = JSON.parse(listing.image_url);
+  
+  if (listing.image_url) {
+    try {
+      let parsed: unknown = listing.image_url;
+      
+      // If it's already an array (from Supabase JSONB), use it directly
       if (Array.isArray(parsed)) {
-        allImages = parsed.filter((url: string) => {
-          if (!url || typeof url !== 'string') return false;
-          if (url.includes('/homedetails/') || url.includes('/homes/') || url.includes('/alpine-ut/')) {
-            return false;
-          }
-          // Allow images from known property photo domains or any valid image URL
-          const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
-          const isPropertyPhotoDomain = url.includes('zillowstatic.com') || 
-                                        url.includes('photos.zillowstatic.com') ||
-                                        url.includes('utahrealestate.com') ||
-                                        url.includes('realtor.com') ||
-                                        url.includes('redfin.com') ||
-                                        url.includes('homes.com') ||
-                                        url.includes('trulia.com');
-          return isImageFile && (isPropertyPhotoDomain || url.startsWith('http'));
-        });
-      } else if (typeof parsed === 'string') {
-        const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(parsed);
-        const isPropertyPhotoDomain = parsed.includes('zillowstatic.com') || 
-                                      parsed.includes('photos.zillowstatic.com') ||
-                                      parsed.includes('utahrealestate.com') ||
-                                      parsed.includes('realtor.com') ||
-                                      parsed.includes('redfin.com') ||
-                                      parsed.includes('homes.com') ||
-                                      parsed.includes('trulia.com');
-        if (!parsed.includes('/homedetails/') && 
-            !parsed.includes('/homes/') &&
-            isImageFile &&
-            (isPropertyPhotoDomain || parsed.startsWith('http'))) {
+        allImages = parsed;
+      } 
+      // If it's a string, try to parse as JSON
+      else if (typeof parsed === 'string') {
+        // Try parsing as JSON first
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {
+          // If parsing fails, treat as single URL string
+          parsed = listing.image_url;
+        }
+        
+        // Handle parsed result
+        if (Array.isArray(parsed)) {
+          allImages = parsed;
+        } else if (typeof parsed === 'string') {
           allImages = [parsed];
         }
       }
-    }
-  } catch {
-    if (listing.image_url && 
-        typeof listing.image_url === 'string') {
-      const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(listing.image_url);
-      const isPropertyPhotoDomain = listing.image_url.includes('zillowstatic.com') || 
-                                    listing.image_url.includes('photos.zillowstatic.com') ||
-                                    listing.image_url.includes('utahrealestate.com') ||
-                                    listing.image_url.includes('realtor.com') ||
-                                    listing.image_url.includes('redfin.com') ||
-                                    listing.image_url.includes('homes.com') ||
-                                    listing.image_url.includes('trulia.com');
-      if (!listing.image_url.includes('/homedetails/') && 
-          !listing.image_url.includes('/homes/') &&
-          isImageFile &&
-          (isPropertyPhotoDomain || listing.image_url.startsWith('http'))) {
+    } catch (error) {
+      console.error('[Listing] Error parsing image_url:', error);
+      // Fallback: treat as single URL string
+      if (typeof listing.image_url === 'string') {
         allImages = [listing.image_url];
       }
     }
   }
+  
+  // Filter and validate images
+  allImages = allImages
+    .filter((url: string) => {
+      if (!url || typeof url !== 'string') return false;
+      
+      // Reject listing pages, floorplans (often 404), and invalid URLs
+      if (url.includes('/homedetails/') || 
+          url.includes('/homes/') || 
+          url.includes('/alpine-ut/') ||
+          url.includes('/floorplans/') || // Filter out floorplan URLs (often 404)
+          !url.startsWith('http')) {
+        return false;
+      }
+      
+      // Check if it's a valid image file
+      const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+      if (!isImageFile) return false;
+      
+      // Allow images from known property photo domains
+      const isPropertyPhotoDomain = 
+        url.includes('zillowstatic.com') || 
+        url.includes('photos.zillowstatic.com') ||
+        url.includes('utahrealestate.com') ||
+        url.includes('assets.utahrealestate.com') ||
+        url.includes('realtor.com') ||
+        url.includes('redfin.com') ||
+        url.includes('homes.com') ||
+        url.includes('trulia.com');
+      
+      return isPropertyPhotoDomain || url.startsWith('http');
+    })
+    .slice(0, 50); // Limit to 50 images max
 
   return (
     <div>

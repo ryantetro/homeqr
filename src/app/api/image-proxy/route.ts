@@ -26,29 +26,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
     }
     
-    // Must be from Zillow's image CDN, not listing pages
+    // Must be from allowed image CDNs, not listing pages
     const isImageCDN = urlObj.hostname.includes('zillowstatic.com') || 
-                       urlObj.hostname.includes('photos.zillowstatic.com');
+                       urlObj.hostname.includes('photos.zillowstatic.com') ||
+                       urlObj.hostname.includes('utahrealestate.com') ||
+                       urlObj.hostname.includes('assets.utahrealestate.com');
     
-    // Must be an actual image file (not a listing page)
+    // Must be an actual image file (not a listing page or floorplan)
     const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(imageUrl) || 
                        imageUrl.includes('/photo/') ||
                        imageUrl.includes('/photos/') ||
                        imageUrl.includes('/image/') ||
-                       imageUrl.includes('/media/') ||
-                       imageUrl.includes('/fp/');
+                       imageUrl.includes('/media/');
     
     console.log('[ImageProxy] Validation:', { isImageCDN, isImageFile, hostname: urlObj.hostname });
     
-    // Reject listing pages or non-image URLs
+    // Reject listing pages, floorplans, or non-image URLs
     if (imageUrl.includes('/homedetails/') || 
         imageUrl.includes('/homes/') ||
         imageUrl.includes('/alpine-ut/') ||
+        imageUrl.includes('/floorplans/') || // Reject floorplan URLs (often 404)
         !isImageCDN ||
         !isImageFile) {
       console.error('[ImageProxy] Validation failed:', { 
         hasHomedetails: imageUrl.includes('/homedetails/'),
         hasHomes: imageUrl.includes('/homes/'),
+        hasFloorplans: imageUrl.includes('/floorplans/'),
         isImageCDN,
         isImageFile
       });
@@ -56,59 +59,96 @@ export async function GET(request: NextRequest) {
     }
 
     // Try to get highest resolution version of the image
-    // Strategy: Try original URL first, then try enhancements
+    // Strategy: Try original URL first, then try enhancements (Zillow-specific)
     const originalUrl = imageUrl;
     const urlVariants: string[] = [];
+    const isZillowImage = originalUrl.includes('zillowstatic.com') || originalUrl.includes('photos.zillowstatic.com');
     
-    // Always try original URL first (it's what Zillow actually serves)
+    // Always try original URL first
     urlVariants.push(originalUrl);
     
-    // Strategy 1: Try removing panorama suffix to get base/original resolution (best quality)
-    // Only if original has panorama suffix
-    if (originalUrl.includes('-p_')) {
-      urlVariants.push(originalUrl.replace(/-p_[a-e]\.jpg/i, '.jpg'));
-    }
-    
-    // Strategy 2: Try removing -cc_ft_ to get base URL
-    // Only if original has -cc_ft_ suffix
-    if (originalUrl.includes('-cc_ft_')) {
-      urlVariants.push(originalUrl.replace(/-cc_ft_\d+\.jpg/i, '.jpg'));
-    }
-    
-    // Strategy 3: Try removing -h_g.jpg to get base URL
-    if (originalUrl.includes('-h_g.jpg')) {
-      urlVariants.push(originalUrl.replace(/-h_g\.jpg/i, '.jpg'));
-    }
-    
-    // Strategy 4: Try higher resolution variants if current is low-res
-    const ccFtMatch = originalUrl.match(/-cc_ft_(\d+)/);
-    if (ccFtMatch) {
-      const currentWidth = parseInt(ccFtMatch[1], 10);
-      // Try higher resolutions if we have a low-res version
-      if (currentWidth < 3840) {
-        urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_3840'));
+    // Zillow-specific enhancement strategies
+    if (isZillowImage) {
+      // Strategy 1: Try removing panorama suffix to get base/original resolution (best quality)
+      // Only if original has panorama suffix
+      if (originalUrl.includes('-p_')) {
+        urlVariants.push(originalUrl.replace(/-p_[a-e]\.jpg/i, '.jpg'));
       }
-      if (currentWidth < 1920) {
-        urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_1920'));
+      
+      // Strategy 2: Try removing -cc_ft_ to get base URL
+      // Only if original has -cc_ft_ suffix
+      if (originalUrl.includes('-cc_ft_')) {
+        urlVariants.push(originalUrl.replace(/-cc_ft_\d+\.jpg/i, '.jpg'));
+      }
+      
+      // Strategy 3: Try removing -h_g.jpg to get base URL
+      if (originalUrl.includes('-h_g.jpg')) {
+        urlVariants.push(originalUrl.replace(/-h_g\.jpg/i, '.jpg'));
+      }
+      
+      // Strategy 4: Try higher resolution variants if current is low-res
+      const ccFtMatch = originalUrl.match(/-cc_ft_(\d+)/);
+      if (ccFtMatch) {
+        const currentWidth = parseInt(ccFtMatch[1], 10);
+        // Try higher resolutions if we have a low-res version
+        if (currentWidth < 3840) {
+          urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_3840'));
+        }
+        if (currentWidth < 1920) {
+          urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_1920'));
+        }
+      }
+      
+      // Strategy 5: Try lower resolution variants if current is high-res (as fallback)
+      if (ccFtMatch) {
+        const currentWidth = parseInt(ccFtMatch[1], 10);
+        if (currentWidth >= 3840) {
+          urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_1920'));
+          urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_960'));
+        } else if (currentWidth >= 1920) {
+          urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_960'));
+        }
       }
     }
-    
-    // Strategy 5: Try lower resolution variants if current is high-res (as fallback)
-    if (ccFtMatch) {
-      const currentWidth = parseInt(ccFtMatch[1], 10);
-      if (currentWidth >= 3840) {
-        urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_1920'));
-        urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_960'));
-      } else if (currentWidth >= 1920) {
-        urlVariants.push(originalUrl.replace(/-cc_ft_\d+/, '-cc_ft_960'));
+    // UtahRealEstate-specific strategies
+    else if (originalUrl.includes('utahrealestate.com')) {
+      // Strategy 1: Remove -p_e panorama suffix to get base image (base URLs work, -p_e redirects)
+      // This should be tried FIRST since base URLs are more reliable
+      if (originalUrl.includes('-p_')) {
+        urlVariants.push(originalUrl.replace(/-p_[a-e]\.jpg/i, '.jpg'));
+      }
+      
+      // Strategy 2: Try different resolution paths (only if base URL doesn't work)
+      // Common patterns: /1024x768/, /1920x1440/, /2048x1536/, /3840x2880/
+      const pathResMatch = originalUrl.match(/\/(\d+)x(\d+)\//);
+      if (pathResMatch) {
+        const currentWidth = parseInt(pathResMatch[1], 10);
+        const currentHeight = parseInt(pathResMatch[2], 10);
+        const aspectRatio = currentHeight / currentWidth;
+        
+        // Try higher resolutions
+        if (currentWidth < 3840) {
+          const baseUrl = originalUrl.replace(/-p_[a-e]\.jpg/i, '.jpg');
+          urlVariants.push(baseUrl.replace(/\/(\d+)x(\d+)\//, `/3840x${Math.round(3840 * aspectRatio)}/`));
+        }
+        if (currentWidth < 1920) {
+          const baseUrl = originalUrl.replace(/-p_[a-e]\.jpg/i, '.jpg');
+          urlVariants.push(baseUrl.replace(/\/(\d+)x(\d+)\//, `/1920x${Math.round(1920 * aspectRatio)}/`));
+        }
       }
     }
+    // For other domains, just try the original URL
 
     // Try each URL variant until one works
     const tryFetch = async (url: string) => {
+      // Set appropriate referer based on domain
+      const referer = url.includes('utahrealestate.com') 
+        ? 'https://www.utahrealestate.com/'
+        : 'https://www.zillow.com/';
+      
       const response = await fetch(url, {
         headers: {
-          'Referer': 'https://www.zillow.com/',
+          'Referer': referer,
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',

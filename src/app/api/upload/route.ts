@@ -36,20 +36,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check trial limits for listing photos
-      if (access.reason === 'trial') {
-        const limitCheck = await checkTrialLimit(user.id, 'photos');
-        if (!limitCheck.allowed) {
-          return NextResponse.json(
-            {
-              error: `Trial limit reached. You've uploaded ${limitCheck.current}/${limitCheck.limit} photos. Upgrade to upload unlimited photos.`,
-              limit: limitCheck.limit,
-              current: limitCheck.current,
-            },
-            { status: 403 }
-          );
-        }
-      }
+      // All limits removed - unlimited photos for all users
     }
 
     // Validate file size (5MB max)

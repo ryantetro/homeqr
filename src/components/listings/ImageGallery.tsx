@@ -22,8 +22,14 @@ function getImageUrl(url: string): string {
                            url.includes('photos.zillowstatic.com')) &&
                           /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
   
-  // Reject listing pages
-  if (url.includes('/homedetails/') || url.includes('/homes/')) {
+  const isUtahRealEstateCDN = (url.includes('utahrealestate.com') || 
+                               url.includes('assets.utahrealestate.com')) &&
+                              /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+  
+  // Reject listing pages and floorplans
+  if (url.includes('/homedetails/') || 
+      url.includes('/homes/') || 
+      url.includes('/floorplans/')) {
     return url;
   }
   
@@ -33,7 +39,12 @@ function getImageUrl(url: string): string {
     return `/api/image-proxy?url=${encodeURIComponent(url)}`;
   }
   
-  // For non-Zillow images, return as-is
+  // For UtahRealEstate images, use proxy to handle CORS and 404s gracefully
+  if (isUtahRealEstateCDN) {
+    return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+  }
+  
+  // For other images, return as-is
   return url;
 }
 

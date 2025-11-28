@@ -1,0 +1,24 @@
+# Test URLs for Extraction Testing
+
+# Zillow URLs
+https://www.zillow.com/homedetails/1292-E-810th-St-S-Alpine-UT-84004/11921342_zpid/
+https://www.zillow.com/homedetails/1449-N-Annie-Cir-Alpine-UT-84004/2053663105_zpid/
+https://www.zillow.com/homedetails/682-E-Healey-Blvd-S-Alpine-UT-84004/450617111_zpid/
+
+# Realtor.com URLs
+https://www.realtor.com/realestateandhomes-detail/5642-Madison-Ave_Sacramento_CA_95841_M96261-15275
+https://www.realtor.com/realestateandhomes-detail/1512-Goldfish-Way_Sacramento_CA_95832_M91813-31429
+
+# UtahRealEstate.com URLs
+https://www.utahrealestate.com/548-N-850-W-Provo-UT-84601/2124689
+https://www.utahrealestate.com/5352-W-WESTSLOPE-DR-Kearns-UT-84118/2124685
+
+# Homes.com URLs
+https://www.homes.com/property/505-c-st-salt-lake-city-ut/1eds8160syd1x/
+
+# Edge Cases (for error handling)
+https://www.zillow.com/
+https://not-a-real-site.com/fake
+
+
+

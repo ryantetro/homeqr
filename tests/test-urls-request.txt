@@ -1,0 +1,60 @@
+# Test URLs Requested for Extraction Testing
+# Please provide real listing URLs from the following platforms:
+
+## Zillow (Priority - Most Important)
+# Please provide 2-3 Zillow listing URLs:
+# Format: https://www.zillow.com/homedetails/[address]/[zpid]/
+# Example: https://www.zillow.com/homedetails/123-Main-St-City-ST-12345/12345678_zpid/
+
+1. Zillow URL #1: 
+2. Zillow URL #2: 
+3. Zillow URL #3: 
+
+## Realtor.com (Priority - Second Most Important)
+# Please provide 2-3 Realtor.com listing URLs:
+# Format: https://www.realtor.com/realestateandhomes-detail/[address]_[mls-id]
+
+4. Realtor.com URL #1: 
+5. Realtor.com URL #2: 
+6. Realtor.com URL #3: 
+
+## Redfin (Optional but Helpful)
+# Please provide 1-2 Redfin listing URLs if available:
+
+7. Redfin URL #1: 
+8. Redfin URL #2: 
+
+## Homes.com (Optional but Helpful)
+# Please provide 1-2 Homes.com listing URLs if available:
+
+9. Homes.com URL #1: 
+10. Homes.com URL #2: 
+
+## Trulia (Optional but Helpful)
+# Please provide 1-2 Trulia listing URLs if available:
+
+11. Trulia URL #1: 
+12. Trulia URL #2: 
+
+## UtahRealEstate.com (Optional - If you have access)
+# Please provide 1-2 UtahRealEstate.com listing URLs if available:
+
+13. UtahRealEstate URL #1: 
+14. UtahRealEstate URL #2: 
+
+## Edge Cases (Optional - For Testing Error Handling)
+# These help test error handling:
+
+15. Invalid URL (for testing): https://not-a-real-listing-site.com/fake
+16. Non-listing page (for testing): https://www.zillow.com/ (homepage)
+17. Expired/Removed listing (if you have one): 
+
+---
+# Instructions:
+# 1. Copy this file
+# 2. Fill in the URLs above (at minimum, provide Zillow and Realtor.com URLs)
+# 3. Save as tests/test-urls.txt
+# 4. Run: node tests/test-extraction.js --file tests/test-urls.txt
+
+
+

@@ -2,23 +2,16 @@
 // Set these in your environment variables
 
 export const PRICE_IDS = {
-  starter: {
-    monthly: process.env.STRIPE_STARTER_MONTHLY_PRICE_ID || '',
-    annual: process.env.STRIPE_STARTER_ANNUAL_PRICE_ID || '',
-  },
-  pro: {
-    monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID || '',
-    annual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID || '',
-  },
+  monthly: process.env.STRIPE_MONTHLY_PRICE_ID || '',
+  annual: process.env.STRIPE_ANNUAL_PRICE_ID || '',
 } as const;
 
-export type PlanType = 'starter' | 'pro';
 export type BillingCycle = 'monthly' | 'annual';
 
-export function getPriceId(plan: PlanType, billing: BillingCycle): string {
-  const priceId = PRICE_IDS[plan][billing];
+export function getPriceId(billing: BillingCycle): string {
+  const priceId = PRICE_IDS[billing];
   if (!priceId) {
-    throw new Error(`Price ID not configured for ${plan} ${billing}`);
+    throw new Error(`Price ID not configured for ${billing}`);
   }
   return priceId;
 }
@@ -26,7 +19,6 @@ export function getPriceId(plan: PlanType, billing: BillingCycle): string {
 export const PLAN_PRICES = {
   starter: {
     monthly: 29,
-    annual: 290, // ~$24.17/mo when billed annually
   },
   pro: {
     monthly: 49,

@@ -144,12 +144,14 @@ export async function POST(request: NextRequest) {
               console.error('[Webhook] Error checking existing subscription:', existingError);
             }
 
+            // All subscriptions now use single plan - set to 'starter' for consistency
+            // (existing subscriptions keep their plan value but it doesn't affect features)
             const subscriptionData = {
               user_id: userId,
               stripe_customer_id: session.customer as string,
               stripe_subscription_id: session.subscription as string,
               status: subscription.status === 'trialing' ? 'trialing' : 'active',
-              plan: plan,
+              plan: plan || 'starter', // Default to 'starter' for single plan
               current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
               current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
               // Note: trial_started_at column doesn't exist yet - migration not run

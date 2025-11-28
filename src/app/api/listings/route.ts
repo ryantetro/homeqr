@@ -107,20 +107,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check trial limits if user is in trial
-    if (access.reason === 'trial') {
-      const limitCheck = await checkTrialLimit(user.id, 'listings');
-      if (!limitCheck.allowed) {
-        return NextResponse.json(
-          {
-            error: `Trial limit reached. You've created ${limitCheck.current}/${limitCheck.limit} listings. Upgrade to create unlimited listings.`,
-            limit: limitCheck.limit,
-            current: limitCheck.current,
-          },
-          { status: 403 }
-        );
-      }
-    }
+    // All limits removed - unlimited listings for all users
 
     const body = await request.json();
     const {

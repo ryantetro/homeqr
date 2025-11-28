@@ -81,68 +81,75 @@ export default async function SlugListingPage({
   // Additional validation: ensure URL is a valid string
   const hasValidUrl = listing.url && typeof listing.url === 'string' && listing.url.trim().length > 0;
 
-  // Images (keep your safety filters)
+  // Parse images - handle multiple formats: JSON array string, array object, or single URL string
   let allImages: string[] = [];
-  try {
-    if (listing.image_url) {
-      const parsed = JSON.parse(listing.image_url);
+  
+  if (listing.image_url) {
+    try {
+      let parsed: unknown = listing.image_url;
+      
+      // If it's already an array (from Supabase JSONB), use it directly
       if (Array.isArray(parsed)) {
-        allImages = parsed.filter((url: string) => {
-          if (!url || typeof url !== 'string') return false;
-          if (
-            url.includes('/homedetails/') ||
-            url.includes('/homes/') ||
-            url.includes('/alpine-ut/')
-          ) {
-            return false;
-          }
-          // Allow images from known property photo domains or any valid image URL
-          const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
-          const isPropertyPhotoDomain = url.includes('zillowstatic.com') || 
-                                        url.includes('photos.zillowstatic.com') ||
-                                        url.includes('utahrealestate.com') ||
-                                        url.includes('realtor.com') ||
-                                        url.includes('redfin.com') ||
-                                        url.includes('homes.com') ||
-                                        url.includes('trulia.com');
-          return isImageFile && (isPropertyPhotoDomain || url.startsWith('http'));
-        });
-      } else if (typeof parsed === 'string') {
-        const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(parsed);
-        const isPropertyPhotoDomain = parsed.includes('zillowstatic.com') || 
-                                      parsed.includes('photos.zillowstatic.com') ||
-                                      parsed.includes('utahrealestate.com') ||
-                                      parsed.includes('realtor.com') ||
-                                      parsed.includes('redfin.com') ||
-                                      parsed.includes('homes.com') ||
-                                      parsed.includes('trulia.com');
-        if (!parsed.includes('/homedetails/') &&
-            !parsed.includes('/homes/') &&
-            isImageFile &&
-            (isPropertyPhotoDomain || parsed.startsWith('http'))) {
+        allImages = parsed;
+      } 
+      // If it's a string, try to parse as JSON
+      else if (typeof parsed === 'string') {
+        // Try parsing as JSON first
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {
+          // If parsing fails, treat as single URL string
+          parsed = listing.image_url;
+        }
+        
+        // Handle parsed result
+        if (Array.isArray(parsed)) {
+          allImages = parsed;
+        } else if (typeof parsed === 'string') {
           allImages = [parsed];
         }
       }
-    }
-  } catch {
-    if (listing.image_url &&
-        typeof listing.image_url === 'string') {
-      const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(listing.image_url);
-      const isPropertyPhotoDomain = listing.image_url.includes('zillowstatic.com') || 
-                                    listing.image_url.includes('photos.zillowstatic.com') ||
-                                    listing.image_url.includes('utahrealestate.com') ||
-                                    listing.image_url.includes('realtor.com') ||
-                                    listing.image_url.includes('redfin.com') ||
-                                    listing.image_url.includes('homes.com') ||
-                                    listing.image_url.includes('trulia.com');
-      if (!listing.image_url.includes('/homedetails/') &&
-          !listing.image_url.includes('/homes/') &&
-          isImageFile &&
-          (isPropertyPhotoDomain || listing.image_url.startsWith('http'))) {
+    } catch (error) {
+      console.error('[Slug Microsite] Error parsing image_url:', error);
+      // Fallback: treat as single URL string
+      if (typeof listing.image_url === 'string') {
         allImages = [listing.image_url];
       }
     }
   }
+  
+  // Filter and validate images
+  allImages = allImages
+    .filter((url: string) => {
+      if (!url || typeof url !== 'string') return false;
+      
+      // Reject listing pages, floorplans, and invalid URLs
+      if (url.includes('/homedetails/') || 
+          url.includes('/homes/') || 
+          url.includes('/alpine-ut/') ||
+          url.includes('/floorplans/') || // Filter out floorplan URLs (often 404)
+          !url.startsWith('http')) {
+        return false;
+      }
+      
+      // Check if it's a valid image file
+      const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+      if (!isImageFile) return false;
+      
+      // Allow images from known property photo domains
+      const isPropertyPhotoDomain = 
+        url.includes('zillowstatic.com') || 
+        url.includes('photos.zillowstatic.com') ||
+        url.includes('utahrealestate.com') ||
+        url.includes('assets.utahrealestate.com') ||
+        url.includes('realtor.com') ||
+        url.includes('redfin.com') ||
+        url.includes('homes.com') ||
+        url.includes('trulia.com');
+      
+      return isPropertyPhotoDomain || url.startsWith('http');
+    })
+    .slice(0, 50); // Limit to 50 images max
 
   const agent = listing.users as {
     full_name: string | null;
@@ -249,13 +256,13 @@ export default async function SlugListingPage({
       </div>
 
       {/* Hero */}
-      <section className="relative w-full h-[50vh] md:h-[62vh] min-h-[400px] md:min-h-[520px] max-h-[600px] md:max-h-[760px] overflow-hidden">
+      <section className="relative w-full h-[40vh] md:h-[50vh] min-h-[300px] md:min-h-[400px] max-h-[500px] md:max-h-[600px] overflow-hidden">
         {/* Photo */}
         {allImages[0] ? (
           <Image
             src={allImages[0].startsWith('/api/image-proxy')
               ? allImages[0]
-              : allImages[0].includes('zillowstatic.com') 
+              : (allImages[0].includes('zillowstatic.com') || allImages[0].includes('utahrealestate.com'))
               ? `/api/image-proxy?url=${encodeURIComponent(allImages[0])}`
               : allImages[0]}
             alt={title}
@@ -264,12 +271,18 @@ export default async function SlugListingPage({
             quality={100}
             sizes="100vw"
             className="object-cover"
-            unoptimized={allImages[0].includes('zillowstatic.com')}
+            unoptimized={(allImages[0].includes('zillowstatic.com') || allImages[0].includes('utahrealestate.com'))}
           />
         ) : listing.image_url ? (
           // Fallback to string URL (non-optimized)
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={listing.image_url} alt={title} className="absolute inset-0 h-full w-full object-cover" />
+          <img 
+            src={listing.image_url.includes('zillowstatic.com') || listing.image_url.includes('utahrealestate.com')
+              ? `/api/image-proxy?url=${encodeURIComponent(listing.image_url)}`
+              : listing.image_url} 
+            alt={title} 
+            className="absolute inset-0 h-full w-full object-cover" 
+          />
         ) : (
           <div className="absolute inset-0 bg-linear-to-br from-gray-200 to-gray-300" />
         )}
@@ -309,21 +322,21 @@ export default async function SlugListingPage({
         )}
 
         <div className="absolute inset-x-0 bottom-0">
-          <div className="mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 lg:px-8">
-            <div className="grid gap-4 md:gap-6 lg:grid-cols-3 lg:items-end">
+          <div className="mx-auto w-full max-w-7xl px-4 pb-6 sm:px-6 lg:px-8">
+            <div className="grid gap-3 md:gap-4 lg:grid-cols-3 lg:items-end">
               <div className="lg:col-span-2">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tight drop-shadow-xl leading-tight">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-white tracking-tight drop-shadow-xl leading-tight">
                   {title}
                 </h1>
                 {cityLine && (
-                  <p className="mt-2 text-white/90 text-base sm:text-lg md:text-xl">
+                  <p className="mt-1.5 text-white/90 text-sm sm:text-base md:text-lg">
                     {cityLine}
                   </p>
                 )}
 
                 {/* Chips */}
                 {chips.length > 0 && (
-                  <div className="mt-3 md:mt-4 flex flex-wrap gap-2">
+                  <div className="mt-2 md:mt-3 flex flex-wrap gap-1.5">
                     {chips.slice(0, 4).map(chip)}
                   </div>
                 )}
@@ -384,7 +397,7 @@ export default async function SlugListingPage({
             </div>
 
              {/* Share row */}
-             <div className="mt-4 flex items-center gap-3 text-white/90">
+             <div className="mt-2 flex items-center gap-3 text-white/90">
                <ShareButton title={title} />
                <span className="text-xs">Status: {listing.status ?? 'active'}</span>
              </div>
@@ -394,37 +407,36 @@ export default async function SlugListingPage({
 
       {/* Content */}
       <main className="relative z-10 bg-white">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 md:gap-8 px-4 pt-6 md:pt-8 pb-32 md:pb-24 sm:px-6 lg:grid-cols-3 lg:px-8">
-          {/* LEFT */}
-          <div className="lg:col-span-2 space-y-6 md:space-y-8">
-            {/* Lead Form - Moved to top for better visibility */}
-            <Card id="lead" className="border-0 shadow-xl md:shadow-xl">
-              <div className="p-6 md:p-8">
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 md:gap-5 px-4 pt-4 md:pt-5 pb-20 md:pb-16 sm:px-6 lg:grid-cols-12 lg:px-8">
+          {/* LEFT COLUMN - Request Information */}
+          <aside className="lg:col-span-3 space-y-4 md:space-y-5 lg:sticky lg:top-4 lg:h-fit">
+            <Card id="lead" className="border-0 shadow-xl">
+              <div className="p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900">
                   Request Information
                 </h2>
-                <p className="mt-1 text-sm md:text-base text-gray-600">
+                <p className="mt-1.5 text-sm md:text-base text-gray-600">
                   Tell us how we can help and an agent will follow up quickly.
                 </p>
 
                 {/* Social proof */}
-                <div className="mt-4 space-y-2">
+                <div className="mt-3 space-y-1.5">
                   <ViewCount listingId={listing.id} />
-                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
                     <span className="inline-flex h-2 w-2 rounded-full bg-green-500" />
                     <span>Fast response • No obligation</span>
                   </div>
-                  <p className="text-xs text-blue-700 font-medium">
+                  <p className="text-sm text-blue-700 font-medium">
                     ⚡ Contact agent today for best availability
                   </p>
                 </div>
 
-                <div className="mt-6">
+                <div className="mt-4">
                   <LeadForm listingId={listing.id} agentName={agent?.full_name || undefined} />
                 </div>
 
                 {/* Trust badges */}
-                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-500">
                   {agent?.brokerage && <span>Brokerage: {agent.brokerage}</span>}
                   {agent?.license_number && (
                     <span>Lic #{agent.license_number}</span>
@@ -433,7 +445,10 @@ export default async function SlugListingPage({
                 </div>
               </div>
             </Card>
+          </aside>
 
+          {/* MIDDLE COLUMN - Property Details */}
+          <div className="lg:col-span-6 space-y-4 md:space-y-5">
             {/* Gallery */}
             {allImages.length > 1 && (
               <Card className="border-0 shadow-xl overflow-hidden">
@@ -456,11 +471,11 @@ export default async function SlugListingPage({
             {/* Highlights (auto-extract first 4 punchy lines from description) */}
             {listing.description && !listing.ai_description && (
               <Card className="border-0 shadow-xl">
-                <div className="p-6 md:p-8">
-                  <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+                <div className="p-4 md:p-6">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900">
                     Property Highlights
                   </h2>
-                  <ul className="mt-4 grid list-disc gap-2 pl-6 text-base md:text-lg text-gray-800 leading-relaxed">
+                  <ul className="mt-3 grid list-disc gap-1.5 pl-5 text-sm md:text-base text-gray-800 leading-relaxed">
                     {listing.description
                       .split(/[\.\n]/)
                       .map((s: string) => s.trim())
@@ -472,11 +487,11 @@ export default async function SlugListingPage({
                   </ul>
 
                   {/* Full description (collapsible) */}
-                  <details className="mt-6 group">
+                  <details className="mt-4 group">
                     <summary className="cursor-pointer text-sm font-semibold text-blue-700 hover:underline">
                       Read full description
                     </summary>
-                    <p className="mt-3 text-gray-700 whitespace-pre-line">
+                    <p className="mt-2 text-gray-700 whitespace-pre-line text-sm">
                       {listing.description}
                     </p>
                   </details>
@@ -486,11 +501,11 @@ export default async function SlugListingPage({
 
             {/* Specs */}
             <Card className="border-0 shadow-xl">
-              <div className="p-6 md:p-8">
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+              <div className="p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900">
                   Details & Specs
                 </h2>
-                <div className="mt-4 md:mt-6 grid gap-3 md:gap-4 sm:grid-cols-2">
+                <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
                   {[
                     ['Type', listing.property_type || 'Single Family Residence'],
                     ['Year Built', listing.year_built],
@@ -505,7 +520,7 @@ export default async function SlugListingPage({
                     .map(([k, v]) => (
                       <div
                         key={k as string}
-                        className="flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3"
+                        className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2"
                       >
                         <span className="text-sm font-medium text-gray-600">{k}</span>
                         <span className="text-sm font-semibold text-gray-900">{String(v ?? '—')}</span>
@@ -520,11 +535,11 @@ export default async function SlugListingPage({
               listing.matterport_url ||
               listing.video_url) && (
               <Card className="border-0 shadow-xl overflow-hidden">
-                <div className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-900">
+                <div className="p-4 md:p-6">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900">
                     Take a Virtual Tour
                   </h2>
-                  <div className="mt-4 flex flex-wrap gap-3">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {listing.virtual_tour_url && (
                       <a
                         className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-black"
@@ -563,13 +578,13 @@ export default async function SlugListingPage({
             {/* Map */}
             {(listing.address || (listing.city && listing.state)) && (
               <Card className="border-0 shadow-xl overflow-hidden">
-                <div className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-900">Location</h2>
-                  <p className="mt-1 text-sm text-gray-600">
+                <div className="p-4 md:p-6">
+                  <h2 className="text-lg md:text-xl font-bold text-gray-900">Location</h2>
+                  <p className="mt-1 text-xs text-gray-600">
                     {title}
                     {cityLine ? ` — ${cityLine}` : ''}
                   </p>
-                  <div className="mt-4 h-80 w-full overflow-hidden rounded-xl ring-1 ring-gray-200">
+                  <div className="mt-3 h-64 md:h-72 w-full overflow-hidden rounded-xl ring-1 ring-gray-200">
                     <iframe
                       width="100%"
                       height="100%"
@@ -589,9 +604,9 @@ export default async function SlugListingPage({
 
             {/* FAQ / next steps */}
             <Card className="border-0 shadow-xl">
-              <div className="p-8">
-                <h2 className="text-2xl font-bold text-gray-900">Next Steps</h2>
-                <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="p-4 md:p-6">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900">Next Steps</h2>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
                   {[
                     {
                       t: 'Book a tour',
@@ -612,12 +627,12 @@ export default async function SlugListingPage({
                     <a
                       key={x.t}
                       href={x.href}
-                      className="group rounded-xl border border-gray-200 p-4 hover:border-gray-300 hover:bg-gray-50"
+                      className="group rounded-lg border border-gray-200 p-3 hover:border-gray-300 hover:bg-gray-50"
                     >
                       <div className="text-sm font-semibold text-gray-900">
                         {x.t} →
                       </div>
-                      <div className="mt-1 text-sm text-gray-600">{x.d}</div>
+                      <div className="mt-0.5 text-xs text-gray-600">{x.d}</div>
                     </a>
                   ))}
                 </div>
@@ -625,14 +640,14 @@ export default async function SlugListingPage({
             </Card>
           </div>
 
-          {/* RIGHT – sticky */}
-          <aside className="space-y-6 lg:sticky lg:top-6">
+          {/* RIGHT COLUMN - Agent Card */}
+          <aside className="lg:col-span-3 space-y-4 md:space-y-5 lg:sticky lg:top-4 lg:h-fit">
             {agent && <AgentCard agent={agent} />}
 
             {/* View Original Listing Button */}
             {hasValidUrl && (
               <Card className="border-0 shadow-xl">
-                <div className="p-6">
+                <div className="p-4 md:p-5">
                   <a
                     href={listing.url}
                     target="_blank"
@@ -644,30 +659,29 @@ export default async function SlugListingPage({
                     </svg>
                     View Original Listing
                   </a>
-                  <p className="text-xs text-gray-500 text-center mt-3 leading-relaxed">
+                  <p className="text-sm text-gray-500 text-center mt-2 leading-relaxed">
                     See full details, photos, and more on the original listing site
                   </p>
                 </div>
               </Card>
             )}
 
-
             {/* Simple affordability box (optional) */}
             {price && estMonthly && (
               <Card className="border-0 shadow-xl">
-                <div className="p-6">
-                  <div className="text-sm font-semibold text-gray-900">
+                <div className="p-4 md:p-5">
+                  <div className="text-sm md:text-base font-semibold text-gray-900">
                     Estimate your payment
                   </div>
-                  <div className="mt-2 text-2xl font-extrabold text-gray-900">
+                  <div className="mt-1.5 text-xl md:text-2xl font-extrabold text-gray-900">
                     {formatCurrency(estMonthly)} <span className="text-sm font-normal text-gray-500">/mo*</span>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-sm text-gray-500">
                     *Approximation with 20% down, 6.5% APR, taxes & insurance.
                   </p>
                   <a
                     href="#lead"
-                    className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-black"
+                    className="mt-3 inline-flex w-full items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
                   >
                     Get pre-approval help
                   </a>

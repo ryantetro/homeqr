@@ -368,113 +368,60 @@ export default function Home() {
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 tracking-tight">
               Simple, transparent pricing
             </h2>
-            <p className="text-xl text-gray-600 leading-relaxed">Choose the plan that fits your business</p>
+            <p className="text-xl text-gray-600 leading-relaxed">One plan. Everything included.</p>
           </AnimatedSection>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { 
-                name: 'Starter', 
-                price: '$29', 
-                annualPrice: '$290',
-                annualMonthly: '$24',
-                features: [
-                  'Unlimited QR codes',
-                  'Unlimited listings',
-                  'Unlimited photos',
-                  'Basic analytics',
-                  'Lead forms',
-                  'Microsites',
-                  'AI listings',
-                  'Extension',
-                  '30-day retention'
-                ], 
-                popular: false 
-              },
-              { 
-                name: 'Pro', 
-                price: '$49', 
-                annualPrice: '$490',
-                annualMonthly: '$41',
-                features: [
-                  'Everything in Starter',
-                  'Advanced analytics — funnels, insights',
-                  'Export CSV',
-                  'Unlimited retention'
-                ], 
-                popular: true 
-              },
-              { 
-                name: 'Pro Annual', 
-                price: '$490', 
-                period: '/yr',
-                annualMonthly: '$41',
-                features: [
-                  'Everything in Pro',
-                  'Best value',
-                  'Priority support'
-                ], 
-                popular: false,
-                saveBadge: 'Save 25%'
-              },
-            ].map((plan, index) => (
-              <AnimatedSection key={index} delay={index * 150}>
-                <Card className={`${plan.popular ? 'border-2 border-blue-600 bg-blue-50/30 relative shadow-lg' : 'border-gray-200 bg-white hover:shadow-lg'} transition-all duration-300 hover:-translate-y-1`}>
-                  {plan.popular && (
-                    <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-bl-xl uppercase tracking-wide">
-                      Popular
+          <div className="max-w-2xl mx-auto">
+            <AnimatedSection delay={150}>
+              <Card className="border-2 border-blue-600 bg-blue-50/30 relative shadow-lg">
+                <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-bl-xl uppercase tracking-wide">
+                  All Features
+                </div>
+                <CardHeader className="pb-6 pt-8">
+                  <CardTitle className="text-3xl font-semibold mb-6">HomeQR</CardTitle>
+                  <div className="mb-8">
+                    <div className="flex items-baseline gap-2 justify-center">
+                      <span className="text-5xl font-bold text-blue-600">$29</span>
+                      <span className="text-xl text-gray-600">/month</span>
                     </div>
-                  )}
-                  <CardHeader className={`pb-6 ${plan.popular ? 'pt-8' : plan.saveBadge ? 'pt-8' : ''} relative`}>
-                    {plan.saveBadge && (
-                      <div className="absolute top-4 right-4 bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
-                        {plan.saveBadge}
-                      </div>
-                    )}
-                    <CardTitle className="text-2xl font-semibold mb-6">{plan.name}</CardTitle>
-                    <div className="mb-8">
-                      <div className="flex items-baseline gap-2">
-                        <span className={`text-5xl font-bold ${plan.popular ? 'text-blue-600' : 'text-gray-900'}`}>{plan.price}</span>
-                        <span className="text-xl text-gray-600">{plan.period || '/mo'}</span>
-                      </div>
-                      {plan.annualMonthly && plan.period === '/yr' && (
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-600">
-                            <span className="font-semibold">{plan.annualMonthly}/mo</span> billed annually
-                          </p>
-                        </div>
-                      )}
-                      {plan.annualPrice && !plan.period && (
-                        <div className="mt-2">
-                          <p className="text-sm text-gray-600">
-                            <span className="font-semibold">{plan.annualPrice}/yr</span>
-                            {' '}or <span className="font-semibold">{plan.annualMonthly}/mo</span> billed annually
-                          </p>
-                        </div>
-                      )}
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-600">
+                        <span className="font-semibold">$290/year</span>
+                        {' '}or <span className="font-semibold">$24/month</span> billed annually
+                      </p>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-4 text-base text-gray-700 mb-8">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="flex items-center gap-3">
-                          <span className="text-green-500 text-lg">✓</span> 
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <Link href="/auth/signup" className="block">
-                      <Button 
-                        variant={plan.popular ? 'primary' : 'outline'} 
-                        className="w-full py-3 text-base transition-all duration-300 hover:scale-105 active:scale-95"
-                      >
-                        Get Started
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              </AnimatedSection>
-            ))}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-4 text-base text-gray-700 mb-8 grid md:grid-cols-2 gap-3">
+                    {[
+                      'Unlimited QR codes',
+                      'Unlimited listings',
+                      'Unlimited photos',
+                      'Advanced analytics',
+                      'CSV export',
+                      'Unlimited analytics retention',
+                      'Lead forms & microsites',
+                      'AI-powered listings',
+                      'Chrome extension',
+                    ].map((feature, i) => (
+                      <li key={i} className="flex items-center gap-3">
+                        <span className="text-green-500 text-lg">✓</span> 
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/auth/signup" className="block">
+                    <Button 
+                      variant="primary" 
+                      className="w-full py-3 text-base transition-all duration-300 hover:scale-105 active:scale-95"
+                    >
+                      Get Started
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </AnimatedSection>
           </div>
         </div>
       </section>

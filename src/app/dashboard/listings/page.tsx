@@ -88,9 +88,15 @@ export default async function ListingsPage({
         </div>
         {isExpired ? (
           <div className="text-right">
-            <p className="text-sm text-gray-600 mb-2">Trial expired</p>
+            <p className="text-sm text-gray-600 mb-2">
+              {access.reason === 'no-sub' 
+                ? 'No active subscription' 
+                : access.subscription?.status === 'past_due'
+                ? 'Payment required'
+                : 'Subscription expired'}
+            </p>
             <Link href="/dashboard/billing">
-              <Button variant="primary" size="sm">Upgrade to Add Properties</Button>
+              <Button variant="primary" size="sm">Subscribe to Continue</Button>
             </Link>
           </div>
         ) : (

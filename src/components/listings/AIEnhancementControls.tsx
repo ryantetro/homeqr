@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import Card from '@/components/ui/Card';
 import AIEnhancements from './AIEnhancements';
@@ -26,8 +27,50 @@ export default function AIEnhancementControls({
   aiEnhancementStatus,
   aiEnhancedAt,
 }: AIEnhancementControlsProps) {
+  const router = useRouter();
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [enhancementError, setEnhancementError] = useState<string | null>(null);
+  
+  // Poll for AI enhancement completion when status is 'pending'
+  useEffect(() => {
+    if (aiEnhancementStatus !== 'pending') {
+      return;
+    }
+
+    let pollCount = 0;
+    const maxPolls = 60; // 60 polls * 2 seconds = 2 minutes max
+    const pollInterval = 2000; // Poll every 2 seconds
+
+    const intervalId = setInterval(async () => {
+      pollCount++;
+
+      try {
+        // Fetch current listing AI enhancement status
+        const response = await fetch(`/api/listings/${listingId}/status`);
+        if (response.ok) {
+          const data = await response.json();
+          const status = data.data?.ai_enhancement_status;
+          
+          // If status changed from 'pending', refresh the page
+          if (status && status !== 'pending') {
+            clearInterval(intervalId);
+            // Use router.refresh() to update server component data
+            router.refresh();
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('[AI Enhancement] Error polling status:', error);
+      }
+
+      // Stop polling after max attempts
+      if (pollCount >= maxPolls) {
+        clearInterval(intervalId);
+      }
+    }, pollInterval);
+
+    return () => clearInterval(intervalId);
+  }, [aiEnhancementStatus, listingId, router]);
 
   const handleReEnhance = async () => {
     setIsEnhancing(true);
@@ -47,8 +90,8 @@ export default function AIEnhancementControls({
         throw new Error(data.error || 'Failed to enhance listing');
       }
 
-      // Refresh the page to show new enhancements
-      window.location.reload();
+      // Refresh the page data to show new enhancements
+      router.refresh();
     } catch (error) {
       console.error('AI enhancement error:', error);
       setEnhancementError(error instanceof Error ? error.message : 'Failed to enhance listing');

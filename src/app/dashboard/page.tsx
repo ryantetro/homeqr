@@ -9,6 +9,7 @@ import OnboardingModalWrapper from '@/components/dashboard/OnboardingModalWrappe
 import DashboardClient from '@/components/dashboard/DashboardClient';
 import UsageNudge from '@/components/dashboard/UsageNudge';
 import ExpiredTrialOverlay from '@/components/dashboard/ExpiredTrialOverlay';
+import QuickExtractCard from '@/components/listings/QuickExtractCard';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
@@ -92,16 +93,8 @@ export default async function DashboardPage() {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
           );
 
-          // Determine plan from price ID
-          const priceId = activeSubscription.items.data[0]?.price?.id;
-          let plan: 'starter' | 'pro' = 'starter';
-          if (priceId) {
-            const proMonthlyId = process.env.STRIPE_PRO_MONTHLY_PRICE_ID;
-            const proAnnualId = process.env.STRIPE_PRO_ANNUAL_PRICE_ID;
-            if (priceId === proMonthlyId || priceId === proAnnualId) {
-              plan = 'pro';
-            }
-          }
+          // All subscriptions now use single plan - set to 'starter' for consistency
+          const plan: 'starter' | 'pro' = 'starter';
 
           const periodEnd = activeSubscription.current_period_end 
             ? new Date(activeSubscription.current_period_end * 1000).toISOString()
@@ -321,6 +314,13 @@ export default async function DashboardPage() {
       {/* Usage Nudge - Show for trialing users */}
       {subscription?.status === 'trialing' && !userData?.is_beta_user && (
         <UsageNudge subscriptionStatus={subscription.status} />
+      )}
+
+      {/* Quick Extract Card - Prominent feature for adding properties */}
+      {!isExpired && (
+        <div className="mb-8">
+          <QuickExtractCard />
+        </div>
       )}
 
       {/* Dashboard Content */}

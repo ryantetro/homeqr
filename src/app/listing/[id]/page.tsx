@@ -119,64 +119,75 @@ export default async function PublicListingPage({
     });
   }
 
-  // Parse images - check if image_url is a JSON array or single URL
+  // Parse images - handle multiple formats: JSON array string, array object, or single URL string
   let allImages: string[] = [];
-  try {
-    if (listing.image_url) {
-      const parsed = JSON.parse(listing.image_url);
+  
+  if (listing.image_url) {
+    try {
+      let parsed: unknown = listing.image_url;
+      
+      // If it's already an array (from Supabase JSONB), use it directly
       if (Array.isArray(parsed)) {
-        allImages = parsed.filter((url: string) => {
-          if (!url || typeof url !== 'string') return false;
-          if (url.includes('/homedetails/') || url.includes('/homes/') || url.includes('/alpine-ut/')) {
-            return false;
-          }
-          // Allow images from known property photo domains or any valid image URL
-          const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
-          const isPropertyPhotoDomain = url.includes('zillowstatic.com') || 
-                                        url.includes('photos.zillowstatic.com') ||
-                                        url.includes('utahrealestate.com') ||
-                                        url.includes('realtor.com') ||
-                                        url.includes('redfin.com') ||
-                                        url.includes('homes.com') ||
-                                        url.includes('trulia.com');
-          return isImageFile && (isPropertyPhotoDomain || url.startsWith('http'));
-        });
-      } else if (typeof parsed === 'string') {
-        const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(parsed);
-        const isPropertyPhotoDomain = parsed.includes('zillowstatic.com') || 
-                                      parsed.includes('photos.zillowstatic.com') ||
-                                      parsed.includes('utahrealestate.com') ||
-                                      parsed.includes('realtor.com') ||
-                                      parsed.includes('redfin.com') ||
-                                      parsed.includes('homes.com') ||
-                                      parsed.includes('trulia.com');
-        if (!parsed.includes('/homedetails/') && 
-            !parsed.includes('/homes/') &&
-            isImageFile &&
-            (isPropertyPhotoDomain || parsed.startsWith('http'))) {
+        allImages = parsed;
+      } 
+      // If it's a string, try to parse as JSON
+      else if (typeof parsed === 'string') {
+        // Try parsing as JSON first
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {
+          // If parsing fails, treat as single URL string
+          parsed = listing.image_url;
+        }
+        
+        // Handle parsed result
+        if (Array.isArray(parsed)) {
+          allImages = parsed;
+        } else if (typeof parsed === 'string') {
           allImages = [parsed];
         }
       }
-    }
-  } catch {
-    if (listing.image_url && 
-        typeof listing.image_url === 'string') {
-      const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(listing.image_url);
-      const isPropertyPhotoDomain = listing.image_url.includes('zillowstatic.com') || 
-                                    listing.image_url.includes('photos.zillowstatic.com') ||
-                                    listing.image_url.includes('utahrealestate.com') ||
-                                    listing.image_url.includes('realtor.com') ||
-                                    listing.image_url.includes('redfin.com') ||
-                                    listing.image_url.includes('homes.com') ||
-                                    listing.image_url.includes('trulia.com');
-      if (!listing.image_url.includes('/homedetails/') && 
-          !listing.image_url.includes('/homes/') &&
-          isImageFile &&
-          (isPropertyPhotoDomain || listing.image_url.startsWith('http'))) {
+    } catch (error) {
+      console.error('[Microsite] Error parsing image_url:', error);
+      // Fallback: treat as single URL string
+      if (typeof listing.image_url === 'string') {
         allImages = [listing.image_url];
       }
     }
   }
+  
+  // Filter and validate images
+  allImages = allImages
+    .filter((url: string) => {
+      if (!url || typeof url !== 'string') return false;
+      
+      // Reject listing pages, floorplans, and invalid URLs
+      if (url.includes('/homedetails/') || 
+          url.includes('/homes/') || 
+          url.includes('/alpine-ut/') ||
+          url.includes('/floorplans/') || // Filter out floorplan URLs (often 404)
+          !url.startsWith('http')) {
+        return false;
+      }
+      
+      // Check if it's a valid image file
+      const isImageFile = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
+      if (!isImageFile) return false;
+      
+      // Allow images from known property photo domains
+      const isPropertyPhotoDomain = 
+        url.includes('zillowstatic.com') || 
+        url.includes('photos.zillowstatic.com') ||
+        url.includes('utahrealestate.com') ||
+        url.includes('assets.utahrealestate.com') ||
+        url.includes('realtor.com') ||
+        url.includes('redfin.com') ||
+        url.includes('homes.com') ||
+        url.includes('trulia.com');
+      
+      return isPropertyPhotoDomain || url.startsWith('http');
+    })
+    .slice(0, 50); // Limit to 50 images max
 
   // Extract agent info (users is a relationship, could be array or object)
   const agent = Array.isArray(listing.users) 
@@ -214,13 +225,13 @@ export default async function PublicListingPage({
     <div className="min-h-screen bg-white">
       <PageViewTracker listingId={listing.id} source="direct" />
       {/* Hero Section with Image */}
-      <div className="relative w-full h-[50vh] sm:h-[55vh] md:h-[60vh] min-h-[400px] sm:min-h-[450px] md:min-h-[500px] max-h-[700px] overflow-hidden bg-gray-100">
+      <div className="relative w-full h-[40vh] sm:h-[45vh] md:h-[50vh] min-h-[300px] sm:min-h-[350px] md:min-h-[400px] max-h-[500px] overflow-hidden bg-gray-100">
         {allImages.length > 0 ? (
           <div className="absolute inset-0">
             <Image
               src={allImages[0].startsWith('/api/image-proxy')
                 ? allImages[0]
-                : allImages[0].includes('zillowstatic.com')
+                : (allImages[0].includes('zillowstatic.com') || allImages[0].includes('utahrealestate.com'))
                 ? `/api/image-proxy?url=${encodeURIComponent(allImages[0])}`
                 : allImages[0]}
               alt={listing.address}
@@ -229,7 +240,7 @@ export default async function PublicListingPage({
               quality={100}
               sizes="100vw"
               className="object-cover"
-              unoptimized={allImages[0].includes('zillowstatic.com')}
+              unoptimized={(allImages[0].includes('zillowstatic.com') || allImages[0].includes('utahrealestate.com'))}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
           </div>
@@ -238,7 +249,7 @@ export default async function PublicListingPage({
             <Image
               src={listing.image_url?.startsWith('/api/image-proxy')
                 ? listing.image_url
-                : listing.image_url?.includes('zillowstatic.com')
+                : (listing.image_url?.includes('zillowstatic.com') || listing.image_url?.includes('utahrealestate.com'))
                 ? `/api/image-proxy?url=${encodeURIComponent(listing.image_url)}`
                 : listing.image_url}
               alt={listing.address}
@@ -247,7 +258,7 @@ export default async function PublicListingPage({
               quality={100}
               sizes="100vw"
               className="object-cover"
-              unoptimized={listing.image_url?.includes('zillowstatic.com')}
+              unoptimized={(listing.image_url?.includes('zillowstatic.com') || listing.image_url?.includes('utahrealestate.com'))}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
           </div>
@@ -257,13 +268,13 @@ export default async function PublicListingPage({
         
         {/* Hero Content Overlay */}
         <div className="absolute inset-0 flex items-end">
-          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6 sm:pb-8 md:pb-12">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4 sm:pb-5 md:pb-6">
             <div className="max-w-3xl w-full">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2 sm:mb-3 drop-shadow-lg leading-tight">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-1.5 sm:mb-2 drop-shadow-lg leading-tight">
                 {listing.address}
               </h1>
               {listing.city && listing.state && (
-                <div className="flex items-center gap-2 text-white/90 text-base sm:text-lg md:text-xl mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 text-white/90 text-sm sm:text-base md:text-lg mb-3 sm:mb-4">
                   <svg className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -271,10 +282,10 @@ export default async function PublicListingPage({
                   <span className="truncate">{listing.city}, {listing.state} {listing.zip}</span>
                 </div>
               )}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                 {listing.price && (
-                  <div className="inline-block bg-white px-4 sm:px-6 md:px-7 py-3 sm:py-3.5 md:py-4 rounded-lg sm:rounded-xl shadow-2xl border-2 sm:border-4 border-white/80 max-w-full">
-                    <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 tracking-tight">
+                  <div className="inline-block bg-white px-3 sm:px-5 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-lg sm:rounded-xl shadow-2xl border-2 sm:border-4 border-white/80 max-w-full">
+                    <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold text-gray-900 tracking-tight">
                       {formatCurrency(listing.price)}
                     </p>
                   </div>
@@ -306,15 +317,15 @@ export default async function PublicListingPage({
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 sm:-mt-16 md:-mt-20 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-10 md:-mt-12 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
           {/* Left Column - Property Details */}
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+          <div className="lg:col-span-2 space-y-3 sm:space-y-4">
             {/* Key Stats */}
             {(listing.bedrooms || listing.bathrooms || listing.square_feet) && (
               <Card className="border-0 shadow-xl">
-                <div className="p-4 sm:p-6">
-                  <div className="grid grid-cols-3 gap-4 sm:gap-6">
+                <div className="p-3 sm:p-4">
+                  <div className="grid grid-cols-3 gap-3 sm:gap-4">
                     {listing.bedrooms && (
                       <div className="text-center">
                         <div className="flex items-center justify-center mb-2">
@@ -322,30 +333,30 @@ export default async function PublicListingPage({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                           </svg>
                         </div>
-                        <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{listing.bedrooms}</p>
-                        <p className="text-xs sm:text-sm font-medium text-gray-600 uppercase tracking-wide">Bedrooms</p>
+                        <p className="text-xl sm:text-2xl font-bold text-gray-900 mb-0.5">{listing.bedrooms}</p>
+                        <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Bedrooms</p>
                       </div>
                     )}
                     {listing.bathrooms && (
                       <div className="text-center">
-                        <div className="flex items-center justify-center mb-2">
-                          <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex items-center justify-center mb-1.5">
+                          <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
                           </svg>
                         </div>
-                        <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{listing.bathrooms}</p>
-                        <p className="text-xs sm:text-sm font-medium text-gray-600 uppercase tracking-wide">Bathrooms</p>
+                        <p className="text-xl sm:text-2xl font-bold text-gray-900 mb-0.5">{listing.bathrooms}</p>
+                        <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Bathrooms</p>
                       </div>
                     )}
                     {listing.square_feet && (
                       <div className="text-center">
-                        <div className="flex items-center justify-center mb-2">
-                          <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex items-center justify-center mb-1.5">
+                          <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
                           </svg>
                         </div>
-                        <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{listing.square_feet.toLocaleString()}</p>
-                        <p className="text-xs sm:text-sm font-medium text-gray-600 uppercase tracking-wide">Sq Ft</p>
+                        <p className="text-xl sm:text-2xl font-bold text-gray-900 mb-0.5">{listing.square_feet.toLocaleString()}</p>
+                        <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Sq Ft</p>
                       </div>
                     )}
                   </div>
@@ -375,9 +386,9 @@ export default async function PublicListingPage({
             {/* Description */}
             {listing.description && !listing.ai_description && (
               <Card className="border-0 shadow-xl">
-                <div className="p-6 sm:p-8">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">About This Property</h2>
-                  <p className="text-gray-700 leading-relaxed text-base sm:text-lg">{listing.description}</p>
+                <div className="p-4 sm:p-5">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">About This Property</h2>
+                  <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{listing.description}</p>
                 </div>
               </Card>
             )}
@@ -385,9 +396,9 @@ export default async function PublicListingPage({
             {/* Property Information */}
             {(listing.year_built || listing.lot_size || listing.property_type || listing.property_subtype || listing.stories) && (
               <Card className="border-0 shadow-xl">
-                <div className="p-6 sm:p-8">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Property Information</h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+                <div className="p-4 sm:p-5">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Property Information</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                     {listing.year_built && (
                       <div>
                         <p className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1 sm:mb-2">Year Built</p>
@@ -426,9 +437,9 @@ export default async function PublicListingPage({
             {/* Structure Details */}
             {(listing.parking_spaces || listing.garage_spaces || listing.heating || listing.cooling || listing.flooring || listing.fireplace_count) && (
               <Card className="border-0 shadow-xl">
-                <div className="p-6 sm:p-8">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Structure Details</h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+                <div className="p-4 sm:p-5">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Structure Details</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                     {listing.parking_spaces && (
                       <div>
                         <p className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1 sm:mb-2">Parking Spaces</p>
@@ -473,9 +484,9 @@ export default async function PublicListingPage({
             {/* Features */}
             {(features.length > 0 || interiorFeatures.length > 0 || exteriorFeatures.length > 0) && (
               <Card className="border-0 shadow-xl">
-                <div className="p-6 sm:p-8">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Features</h2>
-                  <div className="space-y-6">
+                <div className="p-4 sm:p-5">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Features</h2>
+                  <div className="space-y-4">
                     {features.length > 0 && (
                       <div>
                         <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">General Features</h3>
@@ -520,9 +531,9 @@ export default async function PublicListingPage({
             {/* Financial Information */}
             {(listing.hoa_fee || listing.tax_assessed_value || listing.annual_tax_amount || listing.price_per_sqft || listing.zestimate) && (
               <Card className="border-0 shadow-xl">
-                <div className="p-6 sm:p-8">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Financial Information</h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+                <div className="p-4 sm:p-5">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">Financial Information</h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
                     {listing.hoa_fee && (
                       <div>
                         <p className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-1 sm:mb-2">HOA Fee</p>
@@ -561,9 +572,9 @@ export default async function PublicListingPage({
             {/* Map */}
             {(listing.address || (listing.city && listing.state)) && (
               <Card className="border-0 shadow-xl overflow-hidden">
-                <div className="p-4 sm:p-6">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">Location</h2>
-                  <div className="w-full h-64 sm:h-72 md:h-80 rounded-lg overflow-hidden">
+                <div className="p-4 sm:p-5">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">Location</h2>
+                  <div className="w-full h-56 sm:h-64 md:h-72 rounded-lg overflow-hidden">
                     <iframe
                       width="100%"
                       height="100%"
@@ -582,9 +593,9 @@ export default async function PublicListingPage({
           </div>
 
           {/* Right Column - Agent & Lead Form */}
-          <div className="space-y-4 sm:space-y-6">
+          <div className="space-y-3 sm:space-y-4">
             {/* Agent Information - Sticky */}
-            <div className="lg:sticky lg:top-6 space-y-4 sm:space-y-6">
+            <div className="lg:sticky lg:top-4 space-y-3 sm:space-y-4">
               {agent && (
                 <AgentCard agent={agent} />
               )}
@@ -625,11 +636,11 @@ export default async function PublicListingPage({
 
               {/* Lead Form */}
               <Card className="border-0 shadow-xl">
-                <div className="p-6 sm:p-8">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+                <div className="p-4 sm:p-5">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1.5">
                     Request Information
                   </h2>
-                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+                  <p className="text-sm text-gray-600 mb-3 sm:mb-4">
                     Interested in this property? Fill out the form below and we&apos;ll get back to you soon.
                   </p>
                   <LeadForm listingId={listing.id} agentName={agent?.full_name || undefined} />

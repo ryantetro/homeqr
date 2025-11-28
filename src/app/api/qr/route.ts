@@ -32,20 +32,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check trial limits if user is in trial
-    if (access.reason === 'trial') {
-      const limitCheck = await checkTrialLimit(user.id, 'qr_codes');
-      if (!limitCheck.allowed) {
-        return NextResponse.json(
-          {
-            error: `Trial limit reached. You've generated ${limitCheck.current}/${limitCheck.limit} QR codes. Upgrade to generate unlimited QR codes.`,
-            limit: limitCheck.limit,
-            current: limitCheck.current,
-          },
-          { status: 403 }
-        );
-      }
-    }
+    // All limits removed - unlimited QR codes for all users
 
     // Verify the listing belongs to the user
     const { data: listing, error: listingError } = await supabase
