@@ -97,17 +97,26 @@ export default function WelcomeScreen({ onDismiss }: WelcomeScreenProps) {
               </div>
             </div>
 
-            <Button
-              variant="outline"
-              size="md"
-              onClick={() => setIsExtensionModalOpen(true)}
-              className="w-full h-11 text-sm font-semibold border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all duration-200"
+            <a
+              href="https://chromewebstore.google.com/detail/miggfgghddpmbnblcoodakemagbjlenf?utm_source=item-share-cb"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Install Chrome Extension
-            </Button>
+              <Button
+                variant="outline"
+                size="md"
+                className="w-full h-11 text-sm font-semibold border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 group"
+              >
+                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <span>Get Chrome Extension</span>
+                <svg className="w-3.5 h-3.5 ml-2 opacity-60 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </Button>
+            </a>
           </div>
 
           {/* Continue link - subtle */}

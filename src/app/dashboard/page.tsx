@@ -9,7 +9,9 @@ import OnboardingModalWrapper from '@/components/dashboard/OnboardingModalWrappe
 import DashboardClient from '@/components/dashboard/DashboardClient';
 import UsageNudge from '@/components/dashboard/UsageNudge';
 import ExpiredTrialOverlay from '@/components/dashboard/ExpiredTrialOverlay';
-import QuickExtractCard from '@/components/listings/QuickExtractCard';
+import QuickAddProperty from '@/components/dashboard/QuickAddProperty';
+import DebugWelcomeButton from '@/components/dashboard/DebugWelcomeButton';
+import DebugModals from '@/components/dashboard/DebugModals';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
@@ -93,8 +95,8 @@ export default async function DashboardPage() {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
           );
 
-          // All subscriptions now use single plan - set to 'starter' for consistency
-          const plan: 'starter' | 'pro' = 'starter';
+          // All subscriptions now use single plan
+          const plan = 'homeqr';
 
           const periodEnd = activeSubscription.current_period_end 
             ? new Date(activeSubscription.current_period_end * 1000).toISOString()
@@ -233,6 +235,16 @@ export default async function DashboardPage() {
     thisWeekAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
   const thisWeekLeads =
     thisWeekAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
+  
+  // Get this week's microsite visits (page_views)
+  const { data: thisWeekPageViews } = await supabase
+    .from('analytics')
+    .select('page_views')
+    .in('listing_id', listingIds)
+    .gte('date', thisWeekStart.toISOString().split('T')[0]);
+  
+  const thisWeekMicrositeVisits =
+    thisWeekPageViews?.reduce((sum, a) => sum + (a.page_views || 0), 0) || 0;
 
   // Get ALL listings first (not just 5)
   const { data: allListingsForTop } = await supabase
@@ -316,13 +328,6 @@ export default async function DashboardPage() {
         <UsageNudge subscriptionStatus={subscription.status} />
       )}
 
-      {/* Quick Extract Card - Prominent feature for adding properties */}
-      {!isExpired && (
-        <div className="mb-8">
-          <QuickExtractCard />
-        </div>
-      )}
-
       {/* Dashboard Content */}
       {isExpired ? (
         <ExpiredTrialOverlay>
@@ -337,7 +342,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <Card className="hover:shadow-lg transition-shadow">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -403,6 +408,26 @@ export default async function DashboardPage() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Microsite Visits</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekMicrositeVisits}</p>
+                <p className="text-sm text-gray-500">Past 7 days</p>
+              </div>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
                       <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -435,6 +460,8 @@ export default async function DashboardPage() {
                   </Button>
                 </Link>
                 <ExtensionLink />
+                <DebugWelcomeButton />
+                <DebugModals />
               </div>
             </div>
           </Card>
@@ -476,7 +503,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <Card className="hover:shadow-lg transition-shadow">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -542,6 +569,26 @@ export default async function DashboardPage() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Microsite Visits</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-3xl font-bold text-gray-900 mb-1">{thisWeekMicrositeVisits}</p>
+                <p className="text-sm text-gray-500">Past 7 days</p>
+              </div>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-shadow">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center">
                       <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -562,6 +609,13 @@ export default async function DashboardPage() {
           <Card className="mb-8">
             <div className="p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+              
+              {/* Add Property Input */}
+              <div className="mb-4">
+                <QuickAddProperty />
+              </div>
+              
+              {/* Action Buttons */}
               <div className="flex flex-wrap gap-3">
                 <Link href="/dashboard/analytics">
                   <Button variant="primary" size="md">
@@ -574,6 +628,8 @@ export default async function DashboardPage() {
                   </Button>
                 </Link>
                 <ExtensionLink />
+                <DebugWelcomeButton />
+                <DebugModals />
               </div>
             </div>
           </Card>

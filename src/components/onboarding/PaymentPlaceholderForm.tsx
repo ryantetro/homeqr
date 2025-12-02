@@ -54,7 +54,7 @@ export default function PaymentPlaceholderForm({ onPaymentComplete }: PaymentPla
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: 'starter' }), // Default plan
+        body: JSON.stringify({ billing: 'monthly' }), // Single plan, monthly billing
       });
 
       if (response.ok) {
@@ -96,20 +96,29 @@ export default function PaymentPlaceholderForm({ onPaymentComplete }: PaymentPla
         </div>
 
         <div className="space-y-3">
-          <h3 className="font-semibold text-gray-900">Download Extension</h3>
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => setIsExtensionModalOpen(true)}
-            className="w-full"
+          <h3 className="font-semibold text-gray-900">Get Chrome Extension</h3>
+          <a
+            href="https://chromewebstore.google.com/detail/miggfgghddpmbnblcoodakemagbjlenf?utm_source=item-share-cb"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block"
           >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Install Chrome Extension
-          </Button>
+            <Button
+              variant="primary"
+              size="md"
+              className="w-full group"
+            >
+              <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span>Get Chrome Extension</span>
+              <svg className="w-3.5 h-3.5 ml-2 opacity-70 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </Button>
+          </a>
           <p className="text-xs text-gray-500 text-center">
-            Click the button above to see installation instructions
+            Opens Chrome Web Store in a new tab
           </p>
         </div>
       </div>

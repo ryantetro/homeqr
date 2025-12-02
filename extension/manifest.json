@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HomeQR — Smart QR Codes for Realtors",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Generate and manage property QR codes directly from listing pages.",
   "permissions": ["activeTab", "storage", "scripting", "tabs"],
   "host_permissions": [
@@ -13,7 +13,8 @@
     "*://*.mls.com/*",
     "*://*.sondergrouputah.com/*",
     "http://localhost:3000/*",
-    "https://homeqr.app/*"
+    "https://homeqr.app/*",
+    "https://www.home-qrcode.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -37,6 +38,7 @@
       "matches": [
         "http://localhost:3000/*",
         "https://*.homeqr.app/*",
+        "https://www.home-qrcode.com/*",
         "https://*.vercel.app/*"
       ],
       "js": ["dashboard-content.js"],

@@ -45,7 +45,7 @@ async function handleGenerateQR(payload) {
 
   // Get site URL and auth token from storage
   const { siteUrl, authToken } = await chrome.storage.sync.get(['siteUrl', 'authToken']);
-  const baseUrl = siteUrl || 'http://localhost:3000';
+  const baseUrl = siteUrl || 'https://www.home-qrcode.com';
 
   try {
     // Try to get token from storage first
@@ -272,7 +272,7 @@ chrome.runtime.onInstalled.addListener(() => {
   // Set default site URL if not already set
   chrome.storage.sync.get(['siteUrl'], (data) => {
     if (!data.siteUrl) {
-      chrome.storage.sync.set({ siteUrl: 'http://localhost:3000' });
+      chrome.storage.sync.set({ siteUrl: 'https://www.home-qrcode.com' });
     }
   });
 });

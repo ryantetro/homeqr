@@ -14,8 +14,7 @@ export default function ExtensionInstallModal({ isOpen, onClose }: ExtensionInst
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus>('checking');
   const [showManualInstructions, setShowManualInstructions] = useState(false);
   
-  const chromeWebStoreUrl = process.env.NEXT_PUBLIC_CHROME_WEB_STORE_URL;
-  const isProduction = process.env.NODE_ENV === 'production' && chromeWebStoreUrl;
+  const chromeWebStoreUrl = process.env.NEXT_PUBLIC_CHROME_WEB_STORE_URL || 'https://chromewebstore.google.com/detail/miggfgghddpmbnblcoodakemagbjlenf?utm_source=item-share-cb';
 
   const checkExtensionInstalled = useCallback(async () => {
     try {
@@ -94,13 +93,13 @@ export default function ExtensionInstallModal({ isOpen, onClose }: ExtensionInst
             </div>
           )}
 
-          {/* Chrome Web Store Install (Production) */}
-          {isProduction && extensionStatus !== 'installed' && (
+          {/* Chrome Web Store Install */}
+          {extensionStatus !== 'installed' && (
             <div className="space-y-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Quick Install from Chrome Web Store</h3>
                 <p className="text-gray-600 text-sm mb-4">
-                  Install the HomeQR extension with one click from the Chrome Web Store. This is the recommended method for production use.
+                  Install the HomeQR extension with one click from the Chrome Web Store. This is the recommended method.
                 </p>
                 <Button
                   variant="primary"
@@ -127,18 +126,16 @@ export default function ExtensionInstallModal({ isOpen, onClose }: ExtensionInst
           )}
 
           {/* Manual Installation Instructions */}
-          {(!isProduction || showManualInstructions) && (
+          {showManualInstructions && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Manual Installation</h3>
-                {isProduction && (
-                  <button
-                    onClick={() => setShowManualInstructions(!showManualInstructions)}
-                    className="text-sm text-blue-600 hover:text-blue-700"
-                  >
-                    {showManualInstructions ? 'Hide' : 'Show'} manual instructions
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowManualInstructions(!showManualInstructions)}
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                >
+                  Hide manual instructions
+                </button>
               </div>
               <p className="text-gray-600 text-sm">
                 Follow these steps to manually install the extension for development or testing:
@@ -241,14 +238,12 @@ export default function ExtensionInstallModal({ isOpen, onClose }: ExtensionInst
               </Button>
             ) : (
               <>
-                <Button variant="outline" onClick={onClose}>
-                  Cancel
+                <Button variant="outline" onClick={() => setShowManualInstructions(!showManualInstructions)}>
+                  {showManualInstructions ? 'Hide' : 'Show'} Manual Instructions
                 </Button>
-                {!isProduction && (
-                  <Button variant="primary" onClick={handleOpenExtensionsPage}>
-                    Open Extensions Page
-                  </Button>
-                )}
+                <Button variant="outline" onClick={onClose}>
+                  Close
+                </Button>
               </>
             )}
           </div>

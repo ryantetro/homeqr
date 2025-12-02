@@ -17,7 +17,7 @@ export default function TrialOnboardingModal({ onDismiss }: TrialOnboardingModal
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<'starter-monthly' | 'pro-monthly' | 'pro-annual'>('pro-monthly');
+  const [selectedBilling, setSelectedBilling] = useState<'monthly' | 'annual'>('monthly');
   const [promoCode, setPromoCode] = useState('');
   const [promoCodeValid, setPromoCodeValid] = useState<boolean | null>(null);
   const [validatingPromo, setValidatingPromo] = useState(false);
@@ -219,9 +219,6 @@ export default function TrialOnboardingModal({ onDismiss }: TrialOnboardingModal
     setError(null);
 
     try {
-      // Parse selected plan
-      const [plan, billing] = selectedPlan.split('-') as ['starter' | 'pro', 'monthly' | 'annual'];
-      
       // Validate promo code if provided
       let promotionCodeId: string | undefined;
       if (promoCode.trim()) {
@@ -246,8 +243,7 @@ export default function TrialOnboardingModal({ onDismiss }: TrialOnboardingModal
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          plan,
-          billing,
+          billing: selectedBilling,
           promotionCode: promotionCodeId,
         }),
       });
@@ -473,193 +469,137 @@ export default function TrialOnboardingModal({ onDismiss }: TrialOnboardingModal
                 )}
               </div>
 
-              {/* Pricing Cards - 3 Options */}
-              <div className="grid grid-cols-3 gap-1.5 md:gap-3">
-                {/* Monthly Starter */}
-                <Card
-                  className={`cursor-pointer transition-all ${
-                    selectedPlan === 'starter-monthly'
-                      ? 'ring-2 ring-blue-500 border-blue-500'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                  onClick={() => setSelectedPlan('starter-monthly')}
-                >
-                  <div className="p-2 md:p-4">
-                    <h4 className="text-xs md:text-lg font-bold text-gray-900 mb-1 md:mb-1.5">Starter</h4>
-                    <div className="mb-2 md:mb-3">
-                      <span className="text-base md:text-2xl font-bold text-gray-900">
-                        ${PLAN_PRICES.starter.monthly}
-                      </span>
-                      <span className="text-[10px] md:text-sm text-gray-600">/mo</span>
-                    </div>
-                    <ul className="space-y-0.5 md:space-y-1.5 text-[9px] md:text-xs text-gray-600 mb-2 md:mb-2">
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="leading-tight">Unlimited QR codes</span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="leading-tight">Unlimited listings</span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="leading-tight">Unlimited photos</span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="leading-tight">Basic analytics</span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="leading-tight">Lead forms</span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="leading-tight">Microsites</span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="leading-tight">AI listings</span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="leading-tight">Extension</span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <span className="leading-tight">30-day retention</span>
-                      </li>
-                    </ul>
-                  </div>
-                </Card>
-
-                {/* Monthly Pro - Default */}
+              {/* Pricing Cards - 2 Options (Monthly/Annual) */}
+              <div className="grid grid-cols-2 gap-3 md:gap-4 max-w-2xl mx-auto">
+                {/* Monthly Plan */}
                 <Card
                   className={`cursor-pointer transition-all relative ${
-                    selectedPlan === 'pro-monthly'
+                    selectedBilling === 'monthly'
                       ? 'ring-2 ring-blue-500 border-blue-500 shadow-xl'
                       : 'border-2 border-blue-200 hover:border-blue-300 shadow-lg hover:shadow-xl'
                   } bg-gradient-to-br from-blue-50 to-indigo-50`}
-                  onClick={() => setSelectedPlan('pro-monthly')}
+                  onClick={() => setSelectedBilling('monthly')}
                 >
-                  <div className="absolute -top-1.5 md:-top-2.5 right-1.5 md:right-3 z-10">
-                    <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[8px] md:text-xs font-bold px-1.5 md:px-3 py-0.5 md:py-1 rounded-full shadow-md flex items-center gap-0.5 md:gap-1">
-                      <svg className="w-2 h-2 md:w-3 md:h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <div className="absolute -top-2 md:-top-3 right-2 md:right-3 z-10">
+                    <span className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[8px] md:text-xs font-bold px-2 md:px-3 py-0.5 md:py-1 rounded-full shadow-md flex items-center gap-1">
+                      <svg className="w-2.5 h-2.5 md:w-3 md:h-3" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                       </svg>
                       <span className="hidden sm:inline">Most Popular</span>
                       <span className="sm:hidden">Popular</span>
                     </span>
                   </div>
-                  <div className="p-2 md:p-4 pt-4 md:pt-6">
-                    <div className="flex items-center gap-1 md:gap-1.5 mb-1 md:mb-1.5">
-                      <h4 className="text-xs md:text-lg font-bold text-gray-900">Pro</h4>
-                      <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                      </svg>
-                    </div>
-                    <div className="mb-2 md:mb-3">
-                      <div className="flex items-baseline gap-0.5 md:gap-1">
-                        <span className="text-lg md:text-3xl font-extrabold text-gray-900">
-                          ${PLAN_PRICES.pro.monthly}
+                  <div className="p-4 md:p-6 pt-6 md:pt-8">
+                    <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-3 md:mb-4">Monthly</h4>
+                    <div className="mb-4 md:mb-6">
+                      <div className="flex items-baseline gap-1 md:gap-2">
+                        <span className="text-3xl md:text-4xl font-extrabold text-gray-900">
+                          ${PLAN_PRICES.monthly}
                         </span>
-                        <span className="text-[10px] md:text-sm text-gray-600 font-medium">/mo</span>
+                        <span className="text-sm md:text-lg text-gray-600 font-medium">/month</span>
                       </div>
                     </div>
-                    <ul className="space-y-0.5 md:space-y-1.5 text-[9px] md:text-xs mb-2 md:mb-2">
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <ul className="space-y-2 md:space-y-3 text-sm md:text-base text-gray-700">
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-gray-700 leading-tight">Everything in Starter</span>
+                        <span className="leading-tight">Unlimited QR codes</span>
                       </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        <span className="text-gray-700 leading-tight">
-                          <span className="font-semibold text-gray-900">Advanced analytics</span>
-                          <span className="text-gray-600 hidden md:inline"> — funnels, insights</span>
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        <span className="text-gray-700 leading-tight">
-                          <span className="font-semibold text-gray-900">Export CSV</span>
-                        </span>
-                      </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="text-gray-700 leading-tight">
-                          <span className="font-semibold text-gray-900">Unlimited retention</span>
-                        </span>
+                        <span className="leading-tight">Unlimited listings</span>
+                      </li>
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="leading-tight">Unlimited photos</span>
+                      </li>
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="leading-tight">Advanced analytics</span>
+                      </li>
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="leading-tight">CSV export</span>
+                      </li>
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="leading-tight">Unlimited analytics retention</span>
+                      </li>
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="leading-tight">Lead forms & microsites</span>
+                      </li>
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="leading-tight">AI-powered listings</span>
+                      </li>
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="leading-tight">Chrome extension</span>
                       </li>
                     </ul>
                   </div>
                 </Card>
 
-                {/* Annual Pro */}
+                {/* Annual Plan */}
                 <Card
                   className={`cursor-pointer transition-all relative ${
-                    selectedPlan === 'pro-annual'
+                    selectedBilling === 'annual'
                       ? 'ring-2 ring-blue-500 border-blue-500'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
-                  onClick={() => setSelectedPlan('pro-annual')}
+                  onClick={() => setSelectedBilling('annual')}
                 >
-                  <div className="absolute top-1.5 md:top-3 right-1.5 md:right-3 z-10">
-                    <span className="bg-green-100 text-green-800 text-[8px] md:text-xs font-semibold px-1.5 md:px-2.5 py-0.5 rounded-full shadow-sm">
-                      Save 25%
+                  <div className="absolute top-2 md:top-3 right-2 md:right-3 z-10">
+                    <span className="bg-green-100 text-green-800 text-[8px] md:text-xs font-semibold px-2 md:px-3 py-0.5 md:py-1 rounded-full shadow-sm">
+                      Save 17%
                     </span>
                   </div>
-                  <div className="p-2 md:p-4">
-                    <h4 className="text-xs md:text-lg font-bold text-gray-900 mb-1 md:mb-1.5 pr-14 md:pr-20">Pro Annual</h4>
-                    <div className="mb-2 md:mb-3">
-                      <span className="text-base md:text-2xl font-bold text-gray-900">
-                        ${PLAN_PRICES.pro.annual}
-                      </span>
-                      <span className="text-[10px] md:text-sm text-gray-600">/yr</span>
-                      <p className="text-[9px] md:text-xs text-gray-500 mt-0.5 leading-tight">
-                        ${Math.round(PLAN_PRICES.pro.annual / 12)}/mo billed annually
+                  <div className="p-4 md:p-6">
+                    <h4 className="text-lg md:text-xl font-bold text-gray-900 mb-3 md:mb-4 pr-16 md:pr-20">Annual</h4>
+                    <div className="mb-4 md:mb-6">
+                      <div className="flex items-baseline gap-1 md:gap-2">
+                        <span className="text-3xl md:text-4xl font-extrabold text-gray-900">
+                          ${PLAN_PRICES.annual}
+                        </span>
+                        <span className="text-sm md:text-lg text-gray-600 font-medium">/year</span>
+                      </div>
+                      <p className="text-xs md:text-sm text-gray-500 mt-1 md:mt-2 leading-tight">
+                        ${Math.round(PLAN_PRICES.annual / 12)}/mo billed annually
                       </p>
                     </div>
-                    <ul className="space-y-0.5 md:space-y-1.5 text-[9px] md:text-xs text-gray-600 mb-2 md:mb-2">
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <ul className="space-y-2 md:space-y-3 text-sm md:text-base text-gray-700">
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span className="leading-tight">Everything in Pro</span>
+                        <span className="leading-tight">Everything in Monthly</span>
                       </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                         <span className="leading-tight">Best value</span>
                       </li>
-                      <li className="flex items-start gap-1 md:gap-1.5">
-                        <svg className="w-2.5 h-2.5 md:w-4 md:h-4 text-green-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <li className="flex items-start gap-2 md:gap-3">
+                        <svg className="w-5 h-5 md:w-6 md:h-6 text-green-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                         <span className="leading-tight">Priority support</span>

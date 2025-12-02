@@ -162,19 +162,28 @@ export default function OnboardingModal({ onComplete, onDismiss }: OnboardingMod
                 </p>
               </div>
               <div className="mt-4">
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={() => setIsExtensionModalOpen(true)}
-                  className="w-full"
+                <a
+                  href="https://chromewebstore.google.com/detail/miggfgghddpmbnblcoodakemagbjlenf?utm_source=item-share-cb"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Install Chrome Extension
-                </Button>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full group"
+                  >
+                    <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                    <span>Get Chrome Extension</span>
+                    <svg className="w-4 h-4 ml-2 opacity-70 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </Button>
+                </a>
                 <p className="text-xs text-gray-500 mt-3 text-center">
-                  Click the button above to see installation instructions
+                  Opens Chrome Web Store in a new tab
                 </p>
               </div>
             </div>
@@ -255,14 +264,28 @@ export default function OnboardingModal({ onComplete, onDismiss }: OnboardingMod
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <h4 className="text-sm font-semibold text-gray-900 mb-1.5">Creating Listings</h4>
                   <p className="text-xs text-gray-600 mb-2">
-                    Use the Chrome extension to generate listings directly from Zillow, Realtor.com, or any listing site. The extension automatically extracts property details.
+                    There are two easy ways to create listings from Zillow, Realtor.com, Redfin, or any listing site. Both methods automatically extract property details.
                   </p>
-                  <ol className="list-decimal list-inside space-y-0.5 text-xs text-gray-700">
-                    <li>Visit any property listing page</li>
-                    <li>Click the HomeQR extension icon</li>
-                    <li>Click &quot;Generate QR Code&quot;</li>
-                    <li>Your listing is created automatically!</li>
-                  </ol>
+                  
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-gray-800 mb-1.5">Method 1: Paste Listing URL</p>
+                    <ol className="list-decimal list-inside space-y-0.5 text-xs text-gray-700 ml-2">
+                      <li>Copy the URL from any property listing page</li>
+                      <li>Go to your dashboard&apos;s Quick Actions section</li>
+                      <li>Paste the URL in the &quot;Add Property&quot; field</li>
+                      <li>Click &quot;Add&quot; - your listing is created automatically!</li>
+                    </ol>
+                  </div>
+                  
+                  <div>
+                    <p className="text-xs font-medium text-gray-800 mb-1.5">Method 2: Chrome Extension</p>
+                    <ol className="list-decimal list-inside space-y-0.5 text-xs text-gray-700 ml-2">
+                      <li>Visit any property listing page</li>
+                      <li>Click the HomeQR extension icon</li>
+                      <li>Click &quot;Generate QR Code&quot;</li>
+                      <li>Your listing is created automatically!</li>
+                    </ol>
+                  </div>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <h4 className="text-sm font-semibold text-gray-900 mb-1.5">QR Code Generation</h4>

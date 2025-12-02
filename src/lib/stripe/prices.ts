@@ -17,12 +17,7 @@ export function getPriceId(billing: BillingCycle): string {
 }
 
 export const PLAN_PRICES = {
-  starter: {
-    monthly: 29,
-  },
-  pro: {
-    monthly: 49,
-    annual: 490, // ~$40.83/mo when billed annually
-  },
+  monthly: 29,
+  annual: 290, // $24.17/mo when billed annually
 } as const;
 

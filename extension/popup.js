@@ -1,7 +1,7 @@
 // HomeQR Chrome Extension - Premium Popup Script
 
 let currentListing = null;
-let siteUrl = 'http://localhost:3000';
+let siteUrl = 'https://www.home-qrcode.com';
 let authToken = null;
 
 // Initialize on DOM load
@@ -51,7 +51,7 @@ async function loadInitialData() {
   try {
     // Get storage data
     const data = await chrome.storage.sync.get(['authToken', 'siteUrl']);
-    siteUrl = data.siteUrl || 'http://localhost:3000';
+    siteUrl = data.siteUrl || 'https://www.home-qrcode.com';
     authToken = data.authToken;
 
     // Update settings

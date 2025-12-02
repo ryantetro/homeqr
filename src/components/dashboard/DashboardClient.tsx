@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TrialOnboardingModal from '@/components/onboarding/TrialOnboardingModal';
 import WelcomeScreen from './WelcomeScreen';
@@ -121,6 +121,25 @@ export default function DashboardClient({
     setShowExpiredModal(false);
     setShowTrialModal(true);
   };
+
+  // Debug function to show welcome screen (only in development)
+  const handleDebugWelcome = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      setShowWelcome(true);
+    }
+  }, []);
+
+  // Expose debug function to window for easy access
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).debugShowWelcome = handleDebugWelcome;
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete (window as any).debugShowWelcome;
+      }
+    };
+  }, [handleDebugWelcome]);
 
   return (
     <>
