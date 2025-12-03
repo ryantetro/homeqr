@@ -46,9 +46,17 @@
 
     <!-- Settings Tab -->
     <section id="settings" class="tab-content">
-      <div class="settings-section">
-        <label class="settings-label">Site URL</label>
-        <div class="settings-value" id="siteUrlDisplay">Loading...</div>
+      <div class="settings-section" id="environmentSection" style="display: none;">
+        <label class="settings-label">Environment</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+          <button id="devModeBtn" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 12px;">
+            Use Development (localhost:3000)
+          </button>
+          <button id="prodModeBtn" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 12px;">
+            Use Production
+          </button>
+        </div>
+        <div class="settings-value" id="siteUrlDisplay" style="margin-top: 8px; font-size: 11px; color: #64748b;">Loading...</div>
       </div>
       <div class="settings-section">
         <label class="settings-label">Authentication Status</label>
@@ -58,7 +66,7 @@
       </div>
       <div class="settings-section">
         <label class="settings-label">Extension Version</label>
-        <div class="settings-value">1.0.0</div>
+        <div class="settings-value" id="extensionVersionDisplay">Loading...</div>
       </div>
       <button id="openDashboardBtn" class="btn btn-primary mt-2">
         Open Dashboard

@@ -33,18 +33,47 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // ============================================================
+// Helper: Extract ZPID from current page URL
+// ============================================================
+function extractZpidFromUrl(url) {
+  if (!url) return null;
+  // Zillow URLs: /homedetails/.../12345678_zpid/
+  const match = url.match(/\/(\d+)_zpid/);
+  if (match) {
+    return match[1];
+  }
+  return null;
+}
+
+// ============================================================
 // MAIN: Detect and extract listing data
 // ============================================================
 async function detectListing() {
   const url = location.href;
   const title = document.title;
+  const currentZpid = extractZpidFromUrl(url);
 
   try {
     // 1. Try JSON cache (priority order)
-    const json = await tryJsonCache();
+    const json = await tryJsonCache(currentZpid);
     if (json && json.address) {
-      console.log("[HomeQR] ✅ Using JSON cache data");
-      return { ...json, url, title };
+      // Validate that the extracted ZPID matches the current page ZPID
+      if (currentZpid && json.zpid) {
+        const extractedZpid = String(json.zpid);
+        const pageZpid = String(currentZpid);
+        if (extractedZpid !== pageZpid) {
+          console.warn("[HomeQR] ⚠️ ZPID mismatch! Extracted:", extractedZpid, "Page:", pageZpid);
+          console.warn("[HomeQR] ⚠️ Skipping JSON cache data, falling back to DOM");
+          // Don't use this data - it's from a different listing
+        } else {
+          console.log("[HomeQR] ✅ Using JSON cache data (ZPID validated)");
+          return { ...json, url, title };
+        }
+      } else {
+        // No ZPID to validate, but we have address - use it
+        console.log("[HomeQR] ✅ Using JSON cache data (no ZPID to validate)");
+        return { ...json, url, title };
+      }
     }
   } catch (err) {
     console.log("[HomeQR] ⚠️ JSON extraction failed, falling back to DOM:", err.message);
@@ -53,10 +82,40 @@ async function detectListing() {
   // 2. DOM fallback
   try {
     const domData = fallbackDOM();
+    
+    // Validate extracted address matches URL (if we can extract from URL)
+    const addressFromUrl = extractAddressFromUrl(url);
+    if (addressFromUrl && domData.address) {
+      // Normalize addresses for comparison (remove common words, case-insensitive)
+      const normalizeAddress = (addr) => {
+        return addr.toLowerCase()
+          .replace(/\b(street|st|avenue|ave|road|rd|drive|dr|lane|ln|boulevard|blvd|court|ct|place|pl|way|cir|circle)\b/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
+      
+      const normalizedUrlAddr = normalizeAddress(addressFromUrl);
+      const normalizedExtractedAddr = normalizeAddress(domData.address);
+      
+      // Check if addresses are similar (at least some words match)
+      const urlWords = normalizedUrlAddr.split(' ').filter(w => w.length > 2);
+      const extractedWords = normalizedExtractedAddr.split(' ').filter(w => w.length > 2);
+      const matchingWords = urlWords.filter(w => extractedWords.includes(w));
+      
+      // If less than 50% of words match, the extracted address might be wrong
+      if (urlWords.length > 0 && matchingWords.length < urlWords.length * 0.5) {
+        console.warn("[HomeQR] ⚠️ Extracted address doesn't match URL address!");
+        console.warn("[HomeQR]   URL address:", addressFromUrl);
+        console.warn("[HomeQR]   Extracted:", domData.address);
+        console.warn("[HomeQR]   Using URL address instead");
+        // Use address from URL as it's more reliable
+        domData.address = addressFromUrl;
+      }
+    }
+    
     // Ensure we have at least an address from title or URL if DOM extraction fails
     if (!domData.address || domData.address.trim() === "") {
       const addressFromTitle = extractAddressFromTitle(title);
-      const addressFromUrl = extractAddressFromUrl(url);
       domData.address = addressFromTitle || addressFromUrl || "Property Listing";
       console.log("[HomeQR] ⚠️ No address found in DOM, using:", domData.address);
     }
@@ -154,9 +213,12 @@ function uniqueUrls(urls) {
 // ============================================================
 // 1. JSON Cache Extraction (gdpClientCache + Apollo)
 // ============================================================
-async function tryJsonCache() {
+async function tryJsonCache(expectedZpid = null) {
   try {
     console.log("[HomeQR] Attempting JSON cache extraction...");
+    if (expectedZpid) {
+      console.log("[HomeQR] Expected ZPID:", expectedZpid);
+    }
     
     const script = document.querySelector("script#__NEXT_DATA__");
     if (!script?.textContent) {
@@ -171,6 +233,18 @@ async function tryJsonCache() {
       console.log("[HomeQR] ⚠️ Failed to parse __NEXT_DATA__");
       return null;
     }
+
+    // Helper to validate ZPID match
+    const validateZpid = (prop) => {
+      if (!expectedZpid || !prop) return true; // No ZPID to validate
+      const propZpid = String(prop.zpid || prop.zpidValue || '');
+      const expected = String(expectedZpid);
+      if (propZpid && expected && propZpid !== expected) {
+        console.log("[HomeQR] ⚠️ ZPID mismatch - property:", propZpid, "expected:", expected);
+        return false;
+      }
+      return true;
+    };
 
     // 1) Read raw cache (can be object OR string)
     let cache = data?.props?.pageProps?.componentProps?.gdpClientCache
@@ -192,8 +266,12 @@ async function tryJsonCache() {
         data?.props?.pageProps?.initialData?.forSalePriorityQuery?.property;
 
       if (legacy) {
-        console.log("[HomeQR] ✅ Found legacy property in pageProps");
-        return buildResult(legacy);
+        if (validateZpid(legacy)) {
+          console.log("[HomeQR] ✅ Found legacy property in pageProps (ZPID validated)");
+          return buildResult(legacy);
+        } else {
+          console.log("[HomeQR] ⚠️ Legacy property ZPID doesn't match, skipping");
+        }
       }
 
       const apollo =
@@ -203,9 +281,22 @@ async function tryJsonCache() {
 
       if (apollo && typeof apollo === 'object') {
         console.log("[HomeQR] ✅ Found Apollo cache");
+        // Try to find property with matching ZPID
+        const matchingKey = Object.keys(apollo).find(k => {
+          if (!/ForSale|Property:|Home:/i.test(k)) return false;
+          const prop = apollo[k];
+          return validateZpid(prop);
+        });
+        
+        if (matchingKey && apollo[matchingKey]) {
+          console.log("[HomeQR] ✅ Extracting from Apollo key (ZPID validated):", matchingKey);
+          return buildResult(apollo[matchingKey]);
+        }
+        
+        // Fallback: try first matching key without ZPID validation
         const key = Object.keys(apollo).find(k => /ForSale|Property:|Home:/i.test(k));
         if (key && apollo[key]) {
-          console.log("[HomeQR] ✅ Extracting from Apollo key:", key);
+          console.log("[HomeQR] ⚠️ Extracting from Apollo key (no ZPID validation):", key);
           return buildResult(apollo[key]);
         }
       }
@@ -233,24 +324,32 @@ async function tryJsonCache() {
       console.log("[HomeQR] ✅ Found query key:", key.substring(0, 80) + "...");
       const prop = entry?.property ?? entry?.data?.property ?? entry?.home ?? entry;
       if (prop) {
-        console.log("[HomeQR] ✅ Extracting property data");
-        return buildResult(prop);
+        if (validateZpid(prop)) {
+          console.log("[HomeQR] ✅ Extracting property data (ZPID validated)");
+          return buildResult(prop);
+        } else {
+          console.log("[HomeQR] ⚠️ Preferred property ZPID doesn't match, trying fallback");
+        }
       }
     }
 
-    // 5) Fallback: scan for any "property-like" node
+    // 5) Fallback: scan for any "property-like" node with matching ZPID
     console.log("[HomeQR] Searching cache entries for property data...");
     for (const [, entry] of entries.slice(0, 500)) {
       if (entry && typeof entry === 'object') {
         const prop = entry.property ?? entry.data?.property ?? entry.home ?? entry;
         if (prop && (prop.streetAddress || prop.address || prop.responsivePhotos || prop.price)) {
-          console.log("[HomeQR] ✅ Found property in fallback search");
-          return buildResult(prop);
+          if (validateZpid(prop)) {
+            console.log("[HomeQR] ✅ Found property in fallback search (ZPID validated)");
+            return buildResult(prop);
+          } else {
+            console.log("[HomeQR] ⚠️ Property found but ZPID doesn't match, continuing search...");
+          }
         }
       }
     }
 
-    console.log("[HomeQR] ⚠️ No property data found in JSON cache");
+    console.log("[HomeQR] ⚠️ No property data found in JSON cache (or none matched ZPID)");
     return null;
   } catch (err) {
     console.log("[HomeQR] ⚠️ Error during JSON cache extraction:", err?.message);
@@ -2016,41 +2115,40 @@ function buildResult(prop) {
     };
     
     // Helper function to try enhancing URL to highest resolution
-    // Strategy: Try to get original resolution by removing panorama suffix first
-    // If that doesn't work, try highest panorama variant
+    // Strategy: Be conservative - only enhance if we're confident the URL will work
+    // Don't remove suffixes that might be required for the URL to be valid
     const enhanceImageUrl = (url) => {
       if (!url || typeof url !== 'string') return url;
       
-      // BEST: Try removing panorama suffix to get original/base resolution
-      // Base URLs without -p_ suffix are often the original high-resolution images
-      if (url.includes('-p_')) {
-        const baseUrl = url.replace(/-p_[a-e]\.jpg/i, '.jpg');
-        console.log("[HomeQR] 🎯 Trying base URL (original resolution, no panorama suffix):", baseUrl.substring(0, 100));
-        // Return base URL - this is often the highest quality original image
-        return baseUrl;
-      }
-      
-      // FALLBACK: If no panorama suffix, try adding -p_e (highest panorama variant)
-      // But only if URL doesn't already have resolution indicators
-      if (url.match(/\.jpg$/i) && !url.match(/[-_](p_|cc_ft_|large|xlarge|hd|full|w\d+)/i)) {
-        const enhanced = url.replace(/\.jpg$/i, '-p_e.jpg');
-        console.log("[HomeQR] 🔄 Enhanced base URL: added -p_e suffix (highest panorama)");
-        return enhanced;
-      }
-      
-      // Try to enhance -cc_ft_ width patterns
+      // CONSERVATIVE: Only enhance -cc_ft_ width patterns (these are safe to upgrade)
+      // Don't remove panorama suffixes as they might be required for URL validity
       const ccFtMatch = url.match(/-cc_ft_(\d+)/);
       if (ccFtMatch) {
         const currentWidth = parseInt(ccFtMatch[1], 10);
-        if (currentWidth < 3840) {
-          // Try to upgrade to maximum width
+        // Only upgrade if current width is significantly lower than max
+        // And only if we're confident the enhanced URL will exist
+        if (currentWidth < 1920) {
+          // Try to upgrade to 1920 (common high-res size)
+          const enhanced = url.replace(/-cc_ft_\d+/, '-cc_ft_1920');
+          console.log(`[HomeQR] 🔄 Enhanced width URL: ${currentWidth} → 1920`);
+          return enhanced;
+        }
+        if (currentWidth < 3840 && currentWidth >= 1920) {
+          // Try to upgrade to maximum width only if already at decent resolution
           const enhanced = url.replace(/-cc_ft_\d+/, '-cc_ft_3840');
           console.log(`[HomeQR] 🔄 Enhanced width URL: ${currentWidth} → 3840 (maximum)`);
           return enhanced;
         }
       }
       
-      return url; // Return original if no enhancement possible
+      // DON'T remove panorama suffixes - they might be required for URL validity
+      // The base URL without -p_ suffix often doesn't exist (404 errors)
+      // Instead, prefer higher panorama variants if we have a choice
+      
+      // If URL has a low panorama variant (a, b), we could try higher ones
+      // But only if we're selecting from multiple variants, not modifying existing URLs
+      
+      return url; // Return original - be conservative to avoid 404s
     };
 
     // Extract photos - prioritize listing's own photos over all photos
@@ -2199,20 +2297,23 @@ function buildResult(prop) {
 
     // Deduplicate photos using canonical URLs (same photo, different resolutions)
     // This ensures we only keep the highest quality version of each unique photo
+    // CONSERVATIVE: Don't remove panorama suffixes as they might be required for URL validity
     const canonicalPhotos = new Map();
     for (const item of rawPhotos) {
       if (!item || !item.url) continue;
       
-      // Create canonical URL by removing resolution parameters
-      // This helps identify the same photo at different resolutions
+      // Create canonical URL by removing ONLY safe resolution parameters
+      // DON'T remove panorama suffixes (-p_a.jpg, etc.) as they might be required
       let canonical = item.url
-        .replace(/-p_[a-e]\.jpg/i, '.jpg') // Remove panorama suffix
-        .replace(/-cc_ft_\d+/g, '') // Remove width parameters
-        .replace(/[?&]w=\d+/g, '') // Remove query width params
-        .replace(/[?&]width=\d+/g, '') // Remove query width params
-        .replace(/_w\d+/g, '') // Remove width suffix
-        .replace(/\/\d+x\d+\//g, '/') // Remove path dimensions
-        .split('?')[0]; // Remove query string
+        .replace(/-cc_ft_\d+/g, '') // Remove width parameters (safe to remove)
+        .replace(/[?&]w=\d+/g, '') // Remove query width params (safe)
+        .replace(/[?&]width=\d+/g, '') // Remove query width params (safe)
+        .replace(/_w\d+/g, '') // Remove width suffix (safe)
+        .replace(/\/\d+x\d+\//g, '/') // Remove path dimensions (safe)
+        .split('?')[0]; // Remove query string (safe)
+      
+      // Keep panorama suffixes and other URL structure intact
+      // This prevents creating invalid URLs that return 404
       
       // If we haven't seen this canonical URL, or this version has higher quality
       if (!canonicalPhotos.has(canonical) || 

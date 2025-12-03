@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeTabs();
   initializeSettings();
   loadInitialData();
+  setupAuthListeners();
 });
 
 // Tab Navigation
@@ -44,6 +45,19 @@ function initializeTabs() {
   });
 }
 
+// Check if extension is in development mode (unpacked) or production (Chrome Web Store)
+function isDevelopmentMode() {
+  try {
+    const manifest = chrome.runtime.getManifest();
+    // If update_url exists, it's from Chrome Web Store (production)
+    // If not, it's likely an unpacked extension (development)
+    return !manifest.update_url;
+  } catch {
+    // If we can't determine, assume production for safety
+    return false;
+  }
+}
+
 // Load initial data
 async function loadInitialData() {
   showLoader(true);
@@ -51,7 +65,24 @@ async function loadInitialData() {
   try {
     // Get storage data
     const data = await chrome.storage.sync.get(['authToken', 'siteUrl']);
-    siteUrl = data.siteUrl || 'https://www.home-qrcode.com';
+    const defaultUrl = 'https://www.home-qrcode.com';
+    const isDev = isDevelopmentMode();
+    
+    // In production, always use production URL (ignore any stored localhost)
+    if (!isDev) {
+      if (data.siteUrl && data.siteUrl.includes('localhost')) {
+        // Clear any localhost URL from storage
+        siteUrl = defaultUrl;
+        chrome.storage.sync.set({ siteUrl: defaultUrl });
+      } else {
+        siteUrl = data.siteUrl || defaultUrl;
+      }
+    } else {
+      // In development, allow localhost
+      siteUrl = data.siteUrl || defaultUrl;
+    }
+    
+    const previousAuthToken = authToken;
     authToken = data.authToken;
 
     // Update settings
@@ -59,6 +90,10 @@ async function loadInitialData() {
 
     // Load generate tab
     if (authToken) {
+      // If we just got a token (wasn't there before), show success message
+      if (!previousAuthToken && authToken) {
+        showToast('Successfully signed in!', 'success');
+      }
       await loadGenerateTab();
       // Load usage stats after generate tab loads
       setTimeout(() => loadUsageStats(), 500);
@@ -73,9 +108,58 @@ async function loadInitialData() {
   }
 }
 
+// Setup listeners for auth token changes
+function setupAuthListeners() {
+  // Listen for storage changes (when token is stored by dashboard-content.js)
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'sync' && changes.authToken) {
+      const newToken = changes.authToken.newValue;
+      const oldToken = changes.authToken.oldValue;
+      
+      // Only refresh if token actually changed
+      if (newToken !== oldToken) {
+        console.log('Auth token changed, refreshing popup...');
+        loadInitialData();
+      }
+    }
+  });
+
+  // Listen for messages from background script when token is stored
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'AUTH_TOKEN_STORED') {
+      console.log('Auth token stored message received, refreshing popup...');
+      loadInitialData().then(() => {
+        sendResponse({ success: true });
+      }).catch(() => {
+        sendResponse({ success: true }); // Still respond even if there's an error
+      });
+      return true; // Keep message channel open for async response
+    }
+    return false;
+  });
+
+  // Listen for window focus (when user returns from sign-in tab)
+  window.addEventListener('focus', () => {
+    // Check if we have a token now
+    chrome.storage.sync.get(['authToken'], (data) => {
+      const hasToken = !!data.authToken;
+      const currentlyHasToken = !!authToken;
+      
+      // If we didn't have a token before but do now, refresh
+      if (!currentlyHasToken && hasToken) {
+        console.log('Token detected on focus, refreshing popup...');
+        loadInitialData();
+      }
+    });
+  });
+}
+
 // Generate Tab
 async function loadGenerateTab() {
   const generateContent = document.getElementById('generateContent');
+  
+  // Clear any previous listing data to prevent stale data from showing
+  currentListing = null;
 
   try {
     // Get current tab
@@ -87,6 +171,24 @@ async function loadGenerateTab() {
           <span>Unable to access current tab. Please refresh and try again.</span>
         </div>
       `;
+      return;
+    }
+
+    // Check if user is on the HomeQR dashboard/home page
+    const tabUrl = tab.url || '';
+    const siteUrlClean = siteUrl.replace('https://', '').replace('http://', '').replace('www.', '');
+    const isDashboardPage = tabUrl.includes('/dashboard') || 
+                            tabUrl.includes('/properties') ||
+                            tabUrl.includes('/leads') ||
+                            tabUrl.includes('/analytics') ||
+                            tabUrl.includes('/settings') ||
+                            tabUrl.includes('/auth/') ||
+                            (tabUrl.includes(siteUrlClean) && 
+                             !tabUrl.includes('/listings/') && 
+                             !tabUrl.match(/\/[a-z0-9-]{10,}$/)); // Not a property slug page (slugs are usually long)
+    
+    if (isDashboardPage) {
+      showDashboardHelpMessage();
       return;
     }
 
@@ -158,6 +260,32 @@ function handleListingResponse(response, url) {
     return;
   }
 
+  // CRITICAL: Validate that the response URL matches the current tab URL
+  // This prevents showing data from a different listing/page
+  const responseUrl = response.url || '';
+  const currentUrl = url || '';
+  
+  // Normalize URLs for comparison (remove trailing slashes, fragments, etc.)
+  const normalizeUrl = (u) => {
+    try {
+      const urlObj = new URL(u);
+      return urlObj.origin + urlObj.pathname.replace(/\/$/, '');
+    } catch {
+      return u.replace(/\/$/, '').split('#')[0].split('?')[0];
+    }
+  };
+  
+  const normalizedResponseUrl = normalizeUrl(responseUrl);
+  const normalizedCurrentUrl = normalizeUrl(currentUrl);
+  
+  // If URLs don't match, the response is from a different page - don't use it
+  if (normalizedResponseUrl !== normalizedCurrentUrl) {
+    console.warn('[HomeQR] Response URL mismatch! Response:', normalizedResponseUrl, 'Current:', normalizedCurrentUrl);
+    // Use current URL and show manual form with current URL
+    showManualForm(currentUrl);
+    return;
+  }
+
   // Validate extracted data - check if we got useful listing information
   const hasValidAddress = response.address && 
                           response.address.trim() !== '' && 
@@ -174,9 +302,15 @@ function handleListingResponse(response, url) {
                              (response.imageUrls && response.imageUrls.length > 0);
   
   if (hasValidAddress || (hasUsefulData && hasPropertyDetails)) {
+    // Ensure response URL matches current tab URL (use current URL as source of truth)
+    const validatedResponse = {
+      ...response,
+      url: currentUrl // Always use the current tab URL, not the response URL
+    };
+    
     // We have valid extracted data - use it
-    currentListing = response;
-    displayListingInfo(response);
+    currentListing = validatedResponse;
+    displayListingInfo(validatedResponse);
   } else {
     // Extraction failed or returned incomplete data - show manual form with any extracted data pre-filled
     showManualForm(url, response);
@@ -693,11 +827,112 @@ function initializeSettings() {
     e.preventDefault();
     chrome.tabs.create({ url: `${siteUrl}/auth/login` });
   });
+
+  // Check if extension is unpacked (development) or from Chrome Web Store (production)
+  // Unpacked extensions don't have an update_url in their manifest
+  const isDevelopment = (() => {
+    try {
+      const manifest = chrome.runtime.getManifest();
+      // If update_url exists, it's from Chrome Web Store (production)
+      // If not, it's likely an unpacked extension (development)
+      return !manifest.update_url;
+    } catch {
+      // If we can't determine, assume production for safety
+      return false;
+    }
+  })();
+
+  // Only show environment toggle in development
+  const environmentSection = document.getElementById('environmentSection');
+  if (environmentSection) {
+    if (isDevelopment) {
+      environmentSection.style.display = 'block';
+    } else {
+      environmentSection.style.display = 'none';
+      // In production, always use production URL and don't allow switching
+      siteUrl = 'https://www.home-qrcode.com';
+      chrome.storage.sync.set({ siteUrl: siteUrl });
+    }
+  }
+
+  // Development mode toggle (only available in development)
+  const devModeBtn = document.getElementById('devModeBtn');
+  const prodModeBtn = document.getElementById('prodModeBtn');
+  
+  if (devModeBtn && prodModeBtn && isDevelopment) {
+    devModeBtn.addEventListener('click', async () => {
+      const devUrl = 'http://localhost:3000';
+      await chrome.storage.sync.set({ siteUrl: devUrl });
+      siteUrl = devUrl;
+      updateSettingsDisplay();
+      showToast('Switched to development mode (localhost:3000)', 'success');
+      // Reload to apply changes
+      setTimeout(() => {
+        loadInitialData();
+      }, 500);
+    });
+
+    prodModeBtn.addEventListener('click', async () => {
+      const prodUrl = 'https://www.home-qrcode.com';
+      await chrome.storage.sync.set({ siteUrl: prodUrl });
+      siteUrl = prodUrl;
+      updateSettingsDisplay();
+      showToast('Switched to production mode', 'success');
+      // Reload to apply changes
+      setTimeout(() => {
+        loadInitialData();
+      }, 500);
+    });
+  }
 }
 
 function updateSettingsDisplay() {
   // Update site URL
-  document.getElementById('siteUrlDisplay').textContent = siteUrl;
+  const siteUrlDisplay = document.getElementById('siteUrlDisplay');
+  if (siteUrlDisplay) {
+    const isDev = siteUrl.includes('localhost');
+    siteUrlDisplay.textContent = `${siteUrl} ${isDev ? '(Development)' : '(Production)'}`;
+    siteUrlDisplay.style.color = isDev ? '#10b981' : '#64748b';
+  }
+
+  // Update button states (only in development)
+  const devModeBtn = document.getElementById('devModeBtn');
+  const prodModeBtn = document.getElementById('prodModeBtn');
+  const environmentSection = document.getElementById('environmentSection');
+  
+  // Only show environment controls in development
+  if (environmentSection && environmentSection.style.display === 'none') {
+    // In production, don't show environment info
+    return;
+  }
+  
+  if (devModeBtn && prodModeBtn) {
+    const isDev = siteUrl.includes('localhost');
+    if (isDev) {
+      devModeBtn.classList.add('btn-primary');
+      devModeBtn.classList.remove('btn-secondary');
+      prodModeBtn.classList.remove('btn-primary');
+      prodModeBtn.classList.add('btn-secondary');
+    } else {
+      prodModeBtn.classList.add('btn-primary');
+      prodModeBtn.classList.remove('btn-secondary');
+      devModeBtn.classList.remove('btn-primary');
+      devModeBtn.classList.add('btn-secondary');
+    }
+  }
+
+  // Update extension version from manifest
+  const versionDisplay = document.getElementById('extensionVersionDisplay');
+  if (versionDisplay) {
+    try {
+      const manifest = chrome.runtime.getManifest();
+      const version = manifest.version || 'Unknown';
+      versionDisplay.textContent = version;
+    } catch (error) {
+      console.error('Error getting extension version:', error);
+      versionDisplay.textContent = 'Unknown';
+    }
+  }
 
   // Update auth status
   const authStatusDisplay = document.getElementById('authStatusDisplay');
@@ -727,11 +962,97 @@ function showAuthPrompt() {
       <p style="font-size: 14px; color: #64748b; margin-bottom: 12px;">
         Visit your dashboard to sign in to your HomeQR account.
       </p>
-      <a href="${siteUrl}/auth/login" target="_blank" class="btn btn-primary" style="text-decoration: none;">
+      <a href="${siteUrl}/auth/login" target="_blank" class="btn btn-primary" style="text-decoration: none; margin-bottom: 8px; display: inline-block;">
         Sign In
       </a>
+      <div style="margin-top: 12px;">
+        <button id="refreshAuthBtn" class="btn btn-secondary" style="width: 100%; font-size: 12px; padding: 8px;">
+          Check Sign-In Status
+        </button>
+      </div>
+      <p style="font-size: 11px; color: #94a3b8; margin-top: 8px; text-align: center;">
+        After signing in, click this button to refresh
+      </p>
     </div>
   `;
+  
+  // Add click handler for refresh button
+  const refreshBtn = document.getElementById('refreshAuthBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      loadInitialData();
+    });
+  }
+}
+
+function showDashboardHelpMessage() {
+  const generateContent = document.getElementById('generateContent');
+  generateContent.innerHTML = `
+    <div style="text-align: center; padding: 24px 16px;">
+      <div style="font-size: 48px; margin-bottom: 16px;">🏠</div>
+      <h3 style="margin: 0 0 12px 0; font-size: 18px; font-weight: 600; color: #1e293b;">
+        How to Use HomeQR Extension
+      </h3>
+      <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 24px;">
+        The HomeQR extension works best when you're viewing a property listing page. Here's how to get started:
+      </p>
+      
+      <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 20px; text-align: left;">
+        <div style="display: flex; align-items: start; margin-bottom: 16px;">
+          <div style="background: #3b82f6; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; margin-right: 12px;">
+            1
+          </div>
+          <div>
+            <div style="font-weight: 600; color: #1e293b; margin-bottom: 4px;">Visit a Property Listing</div>
+            <div style="font-size: 13px; color: #64748b;">
+              Navigate to a property listing on Zillow, Realtor.com, Redfin, or other MLS sites
+            </div>
+          </div>
+        </div>
+        
+        <div style="display: flex; align-items: start; margin-bottom: 16px;">
+          <div style="background: #3b82f6; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; margin-right: 12px;">
+            2
+          </div>
+          <div>
+            <div style="font-weight: 600; color: #1e293b; margin-bottom: 4px;">Open the Extension</div>
+            <div style="font-size: 13px; color: #64748b;">
+              Click the HomeQR icon in your browser toolbar while on the listing page
+            </div>
+          </div>
+        </div>
+        
+        <div style="display: flex; align-items: start;">
+          <div style="background: #3b82f6; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; margin-right: 12px;">
+            3
+          </div>
+          <div>
+            <div style="font-weight: 600; color: #1e293b; margin-bottom: 4px;">Generate QR Code</div>
+            <div style="font-size: 13px; color: #64748b;">
+              The extension will automatically detect the property details and generate a QR code
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; margin-top: 20px;">
+        <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">
+          Supported sites: Zillow, Realtor.com, Redfin, Homes.com, Trulia, and more
+        </p>
+        <button id="viewPropertiesBtn" class="btn btn-primary" style="width: 100%; font-size: 13px; padding: 10px;">
+          View My Properties
+        </button>
+      </div>
+    </div>
+  `;
+  
+  // Add click handler for view properties button
+  const viewPropertiesBtn = document.getElementById('viewPropertiesBtn');
+  if (viewPropertiesBtn) {
+    viewPropertiesBtn.addEventListener('click', () => {
+      chrome.tabs.create({ url: `${siteUrl}/dashboard/listings` });
+    });
+  }
 }
 
 // Load and display usage stats

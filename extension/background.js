@@ -15,6 +15,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'STORE_AUTH_TOKEN') {
     // Store auth token
     chrome.storage.sync.set({ authToken: message.token }, () => {
+      // Notify popup if it's open
+      chrome.runtime.sendMessage({
+        type: 'AUTH_TOKEN_STORED',
+        token: message.token
+      }).catch(() => {
+        // Popup might not be open, that's okay
+      });
       sendResponse({ success: true });
     });
     return true;

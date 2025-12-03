@@ -61,6 +61,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Get analytics data for accurate scan counts (source of truth)
+    const listingIds = (listings || []).map(l => l.id);
+    const { data: analytics } = listingIds.length > 0
+      ? await supabase
+          .from('analytics')
+          .select('listing_id, total_scans')
+          .in('listing_id', listingIds)
+      : { data: [] };
+
+    // Create a map of listing_id -> total_scans from analytics
+    const scanCountMap = new Map<string, number>();
+    analytics?.forEach(a => {
+      if (a.listing_id && a.total_scans) {
+        // Sum up all total_scans for this listing (there might be multiple date entries)
+        const current = scanCountMap.get(a.listing_id) || 0;
+        scanCountMap.set(a.listing_id, current + (a.total_scans || 0));
+      }
+    });
+
+    // Enhance listings with analytics scan counts
+    const listingsWithScans = (listings || []).map(listing => {
+      const totalScans = scanCountMap.get(listing.id) || 0;
+      
+      // Update qrcodes array with accurate scan count
+      if (listing.qrcodes && listing.qrcodes.length > 0) {
+        listing.qrcodes = listing.qrcodes.map((qr: { id: string; qr_url: string; scan_count: number }) => ({
+          ...qr,
+          scan_count: totalScans, // Use analytics as source of truth
+        }));
+      }
+      
+      return {
+        ...listing,
+        total_scans: totalScans, // Also add at listing level for easy access
+      };
+    });
+
     const { count } = await supabase
       .from('listings')
       .select('*', { count: 'exact', head: true })
@@ -68,7 +105,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'active');
 
     return NextResponse.json({
-      data: listings || [],
+      data: listingsWithScans,
       pagination: {
         page,
         limit,
