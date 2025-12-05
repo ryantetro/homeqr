@@ -62,7 +62,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
       field: 'address',
       severity: 'error',
       message: 'The listing site blocked access. Please use the Chrome extension or enter details manually.',
-      originalValue: data.address,
+      originalValue: data.address ?? undefined,
     });
     confidence = 0;
     // Clear invalid data
@@ -82,7 +82,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'address',
         severity: 'error',
         message: 'Address appears to be invalid or contains suspicious content',
-        originalValue: data.address,
+        originalValue: data.address ?? undefined,
       });
       confidence -= 20;
     }
@@ -96,7 +96,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'city',
         severity: 'warning',
         message: 'City name may be invalid',
-        originalValue: data.city,
+        originalValue: data.city ?? undefined,
       });
       confidence -= 5;
     }
@@ -110,7 +110,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'state',
         severity: 'error',
         message: `Invalid state abbreviation: "${cleaned.state}". Must be a valid 2-letter US state code.`,
-        originalValue: data.state,
+        originalValue: data.state ?? undefined,
       });
       confidence -= 15;
     }
@@ -124,7 +124,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'zip',
         severity: 'error',
         message: 'Invalid ZIP code format. Must be 5 digits or 5+4 format.',
-        originalValue: data.zip,
+        originalValue: data.zip ?? undefined,
       });
       confidence -= 10;
     }
@@ -138,7 +138,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'price',
         severity: priceResult.severity,
         message: priceResult.message,
-        originalValue: data.price,
+        originalValue: data.price ?? undefined,
         suggestedValue: priceResult.suggestedValue,
       });
       confidence -= priceResult.severity === 'error' ? 15 : 5;
@@ -155,7 +155,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'bedrooms',
         severity: bedResult.severity,
         message: bedResult.message,
-        originalValue: data.bedrooms,
+        originalValue: data.bedrooms ?? undefined,
         suggestedValue: bedResult.suggestedValue,
       });
       confidence -= bedResult.severity === 'error' ? 10 : 3;
@@ -172,7 +172,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'bathrooms',
         severity: bathResult.severity,
         message: bathResult.message,
-        originalValue: data.bathrooms,
+        originalValue: data.bathrooms ?? undefined,
         suggestedValue: bathResult.suggestedValue,
       });
       confidence -= bathResult.severity === 'error' ? 10 : 3;
@@ -189,7 +189,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'squareFeet',
         severity: sqftResult.severity,
         message: sqftResult.message,
-        originalValue: data.squareFeet,
+        originalValue: data.squareFeet ?? undefined,
         suggestedValue: sqftResult.suggestedValue,
       });
       confidence -= sqftResult.severity === 'error' ? 10 : 3;
@@ -206,7 +206,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'yearBuilt',
         severity: yearResult.severity,
         message: yearResult.message,
-        originalValue: data.yearBuilt,
+        originalValue: data.yearBuilt ?? undefined,
       });
       confidence -= 5;
     } else if (yearResult.cleanedValue) {
@@ -222,7 +222,7 @@ export function validateAndClean(data: ExtractedListingData): ValidationResult {
         field: 'mlsId',
         severity: 'warning',
         message: 'MLS ID format may be invalid',
-        originalValue: data.mlsId,
+        originalValue: data.mlsId ?? undefined,
       });
       confidence -= 3;
     }
