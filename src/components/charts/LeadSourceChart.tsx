@@ -51,6 +51,104 @@ export default function LeadSourceChart({ data }: LeadSourceChartProps) {
       .sort((a, b) => b.value - a.value);
   }, [data, totalVisits]);
 
+  // Calculate performance insights
+  const performanceInsights = useMemo(() => {
+    // Find best performing source (highest conversion rate with at least 1 lead)
+    const sourcesWithLeads = chartData.filter(item => item.leads > 0);
+    const bestSource = sourcesWithLeads.length > 0
+      ? sourcesWithLeads.reduce((best, current) => {
+          const bestRate = parseFloat(best.conversionRate);
+          const currentRate = parseFloat(current.conversionRate);
+          return currentRate > bestRate ? current : best;
+        })
+      : null;
+
+    // Find second best for comparison
+    const otherSources = sourcesWithLeads.filter(item => item.source !== bestSource?.source);
+    const secondBest = otherSources.length > 0
+      ? otherSources.reduce((best, current) => {
+          const bestRate = parseFloat(best.conversionRate);
+          const currentRate = parseFloat(current.conversionRate);
+          return currentRate > bestRate ? current : best;
+        })
+      : null;
+
+    // Calculate conversion rate difference
+    const conversionGap = bestSource && secondBest
+      ? (parseFloat(bestSource.conversionRate) - parseFloat(secondBest.conversionRate)).toFixed(1)
+      : bestSource
+      ? parseFloat(bestSource.conversionRate).toFixed(1)
+      : '0.0';
+
+    // Calculate multiplier (how many times better)
+    const multiplier = bestSource && secondBest && parseFloat(secondBest.conversionRate) > 0
+      ? (parseFloat(bestSource.conversionRate) / parseFloat(secondBest.conversionRate)).toFixed(1)
+      : null;
+
+    return {
+      bestSource,
+      secondBest,
+      conversionGap,
+      multiplier,
+    };
+  }, [chartData]);
+
+  // Generate actionable recommendation
+  const recommendation = useMemo(() => {
+    const { bestSource, secondBest, multiplier } = performanceInsights;
+
+    // If one source significantly outperforms (2x or more)
+    if (bestSource && secondBest && multiplier && parseFloat(multiplier) >= 2) {
+      const bestName = bestSource.name.toLowerCase();
+      const secondName = secondBest.name.toLowerCase();
+      return {
+        type: 'focus',
+        message: `Focus on ${bestName} — they convert ${multiplier}x better than ${secondName}`,
+        icon: '🎯',
+        color: 'blue',
+      };
+    }
+
+    // If both perform similarly well
+    if (bestSource && secondBest && multiplier && parseFloat(multiplier) < 2 && parseFloat(bestSource.conversionRate) > 5) {
+      return {
+        type: 'maintain',
+        message: 'Both sources performing well — keep it up!',
+        icon: '✨',
+        color: 'green',
+      };
+    }
+
+    // If one has traffic but no leads
+    const sourceWithTrafficNoLeads = chartData.find(item => item.visits > 0 && item.leads === 0);
+    if (sourceWithTrafficNoLeads && bestSource) {
+      return {
+        type: 'optimize',
+        message: `Consider adding QR codes to properties with ${sourceWithTrafficNoLeads.name.toLowerCase()} traffic`,
+        icon: '💡',
+        color: 'amber',
+      };
+    }
+
+    // If only one source has leads
+    if (bestSource && !secondBest) {
+      return {
+        type: 'expand',
+        message: `${bestSource.name} is your only lead source — consider expanding to other channels`,
+        icon: '📈',
+        color: 'purple',
+      };
+    }
+
+    // Default
+    return {
+      type: 'default',
+      message: 'Track your traffic sources to optimize lead generation',
+      icon: '📊',
+      color: 'gray',
+    };
+  }, [performanceInsights, chartData]);
+
   if (totalVisits === 0 && totalLeads === 0) {
     return (
       <div className="h-64 flex items-center justify-center">
@@ -196,6 +294,74 @@ export default function LeadSourceChart({ data }: LeadSourceChartProps) {
               >
                 {topSource.percentage}%
               </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Performance Insights & Recommendations */}
+      {chartData.length > 0 && (
+        <div className="pt-4 border-t border-gray-200 space-y-3">
+          {/* Performance Insights */}
+          {performanceInsights.bestSource && (
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-100">
+              <div className="flex items-start gap-2">
+                <span className="text-lg">📊</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-gray-700 mb-1.5">Performance Insights</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">Best Source:</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-gray-900">
+                          {performanceInsights.bestSource.name}
+                        </span>
+                        <span 
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
+                          style={{ 
+                            backgroundColor: performanceInsights.bestSource.color,
+                          }}
+                        >
+                          {performanceInsights.bestSource.conversionRate}%
+                        </span>
+                      </div>
+                    </div>
+                    {performanceInsights.secondBest && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600">Conversion Gap:</span>
+                        <span className="text-xs font-semibold text-blue-700">
+                          {performanceInsights.conversionGap}% difference
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Actionable Recommendation */}
+          <div 
+            className={`rounded-lg p-3 border ${
+              recommendation.color === 'blue' 
+                ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
+                : recommendation.color === 'green'
+                ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-200'
+                : recommendation.color === 'amber'
+                ? 'bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200'
+                : recommendation.color === 'purple'
+                ? 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200'
+                : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              <span className="text-lg">{recommendation.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-700 mb-1">Recommendation</p>
+                <p className="text-xs text-gray-700 leading-relaxed">
+                  {recommendation.message}
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -223,16 +223,48 @@ export default async function DashboardPage() {
   const conversionRate = calculateConversionRate(totalScans, leadsCount);
 
   // Get this week's scans and leads (for the "This week" cards)
-  const thisWeekStart = new Date();
-  thisWeekStart.setDate(thisWeekStart.getDate() - 7);
-  const { data: thisWeekAnalytics } = await supabase
+  // Calculate date range using UTC to match how analytics records are stored
+  const today = new Date();
+  const todayUTC = today.toISOString().split('T')[0]; // Today in UTC (YYYY-MM-DD)
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+  const sevenDaysAgoUTC = sevenDaysAgo.toISOString().split('T')[0]; // 7 days ago in UTC
+  
+  // Query for analytics records from the last 7 days (inclusive of today)
+  // Use both lower and upper bounds to ensure we get exactly the last 7 days
+  const { data: thisWeekAnalytics, error: thisWeekError } = await supabase
     .from('analytics')
-    .select('total_scans, total_leads')
+    .select('total_scans, total_leads, date, listing_id')
     .in('listing_id', listingIds)
-    .gte('date', thisWeekStart.toISOString().split('T')[0]);
+    .gte('date', sevenDaysAgoUTC)
+    .lte('date', todayUTC);
 
-  const thisWeekScans =
+  if (thisWeekError) {
+    console.error('[Dashboard] Error fetching this week analytics:', thisWeekError);
+  }
+
+  // Fallback: Count QR scans directly from scan_sessions if analytics is missing data
+  // This ensures we get accurate counts even if analytics table hasn't been updated yet
+  const sevenDaysAgoTimestamp = sevenDaysAgo.toISOString();
+  const { data: thisWeekScanSessions } = await supabase
+    .from('scan_sessions')
+    .select('scan_count, source')
+    .in('listing_id', listingIds)
+    .gte('first_scan_at', sevenDaysAgoTimestamp)
+    .lte('first_scan_at', today.toISOString());
+
+  // Count QR scans from scan_sessions (source = 'qr' OR scan_count > 0)
+  const scanSessionsCount = thisWeekScanSessions?.reduce((sum, session) => {
+    const isQRScan = session.source === 'qr' || (session.scan_count && session.scan_count > 0);
+    return sum + (isQRScan ? (session.scan_count || 1) : 0);
+  }, 0) || 0;
+
+  // Use analytics if available, otherwise fall back to scan_sessions count
+  const analyticsScansCount =
     thisWeekAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
+  
+  // Use the higher of the two counts (analytics should be source of truth, but scan_sessions is more real-time)
+  const thisWeekScans = Math.max(analyticsScansCount, scanSessionsCount);
   const thisWeekLeads =
     thisWeekAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
   
@@ -241,7 +273,8 @@ export default async function DashboardPage() {
     .from('analytics')
     .select('page_views')
     .in('listing_id', listingIds)
-    .gte('date', thisWeekStart.toISOString().split('T')[0]);
+    .gte('date', sevenDaysAgoUTC)
+    .lte('date', todayUTC);
   
   const thisWeekMicrositeVisits =
     thisWeekPageViews?.reduce((sum, a) => sum + (a.page_views || 0), 0) || 0;

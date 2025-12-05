@@ -12,6 +12,7 @@ import TopPerformingProperties from '@/components/dashboard/TopPerformingPropert
 import Card from '@/components/ui/Card';
 import { formatDate } from '@/lib/utils/format';
 import AnalyticsClient from '@/components/dashboard/AnalyticsClient';
+import Link from 'next/link';
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
@@ -46,24 +47,67 @@ export default async function AnalyticsPage() {
     .select('*')
     .in('listing_id', listingIds);
 
-  // Debug: Show which listings have scan sessions
-  const scanSessionsByListing = allScanSessions?.reduce((acc, session) => {
-    acc[session.listing_id] = (acc[session.listing_id] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  
-  // Debug: Show which listings have scan sessions but NO analytics
-  const listingsWithScanSessionsButNoAnalytics = Object.keys(scanSessionsByListing || {}).filter(
-    listingId => !analytics?.some(a => a.listing_id === listingId)
-  );
-  
-  // Only log if there are issues
-  if (listingsWithScanSessionsButNoAnalytics.length > 0) {
-    console.warn('[Analytics Page] Listings with scan sessions BUT NO analytics records:', 
-      listingsWithScanSessionsButNoAnalytics.length,
-      listingsWithScanSessionsButNoAnalytics
-    );
-  }
+  // Helper function to count QR scans from scan_sessions
+  // QR scan: source === 'qr' OR scan_count > 0
+  // This matches the logic used on the dashboard page for consistency
+  const getQRScansFromSessions = (
+    sessions: typeof allScanSessions,
+    dateRange?: { start?: string; end?: string },
+    listingIdsFilter?: string[]
+  ): number => {
+    if (!sessions || sessions.length === 0) return 0;
+    
+    return sessions.reduce((sum, session) => {
+      // Filter by listing if provided
+      if (listingIdsFilter && !listingIdsFilter.includes(session.listing_id)) {
+        return sum;
+      }
+      
+      // Filter by date range if provided
+      if (dateRange) {
+        const sessionDate = new Date(session.first_scan_at).toISOString().split('T')[0];
+        if (dateRange.start && sessionDate < dateRange.start) return sum;
+        if (dateRange.end && sessionDate > dateRange.end) return sum;
+      }
+      
+      // Count as QR scan if source is 'qr' OR scan_count > 0
+      // This matches the dashboard page logic exactly
+      const isQRScan = session.source === 'qr' || (session.scan_count && session.scan_count > 0);
+      if (isQRScan) {
+        // Use scan_count if available, otherwise count as 1
+        // This ensures we count each QR scan session correctly
+        return sum + (session.scan_count || 1);
+      }
+      
+      return sum;
+    }, 0);
+  };
+
+  // Helper function to aggregate scan_sessions by date
+  const getScansByDateFromSessions = (
+    sessions: typeof allScanSessions,
+    listingIdsFilter?: string[]
+  ): Record<string, number> => {
+    const scansByDate: Record<string, number> = {};
+    
+    if (!sessions || sessions.length === 0) return scansByDate;
+    
+    sessions.forEach((session) => {
+      // Filter by listing if provided
+      if (listingIdsFilter && !listingIdsFilter.includes(session.listing_id)) {
+        return;
+      }
+      
+      // Count as QR scan if source is 'qr' OR scan_count > 0
+      const isQRScan = session.source === 'qr' || (session.scan_count && session.scan_count > 0);
+      if (isQRScan) {
+        const sessionDate = new Date(session.first_scan_at).toISOString().split('T')[0];
+        scansByDate[sessionDate] = (scansByDate[sessionDate] || 0) + (session.scan_count || 1);
+      }
+    });
+    
+    return scansByDate;
+  };
 
   // Build traffic source breakdown (visits + leads)
   const trafficSourceBreakdown: Record<string, { visits: number; leads: number }> = {
@@ -72,16 +116,22 @@ export default async function AnalyticsPage() {
   };
 
   // Count visits from scan sessions
-  // QR Scan: User scanned the QR code (source = 'qr')
-  // Direct: User visited the microsite URL directly (clicked a link, typed URL, etc.)
+  // QR Scan: User scanned the QR code (source = 'qr') - use scan_count sum for consistency
+  // Direct: User visited the microsite URL directly (clicked a link, typed URL, etc.) - count as 1 visit per session
   allScanSessions?.forEach((session) => {
-    const source = session.source === 'qr' ? 'qr_scan' : 'direct';
-    trafficSourceBreakdown[source].visits += 1;
+    if (session.source === 'qr') {
+      // For QR scans, sum the scan_count to match QR Scans card calculation
+      trafficSourceBreakdown['qr_scan'].visits += session.scan_count || 1;
+    } else {
+      // For direct visits, count each session as 1 visit
+      trafficSourceBreakdown['direct'].visits += 1;
+    }
   });
 
-  // Aggregate data by date
+  // Aggregate data by date - merge analytics and scan_sessions
   const chartData: Record<string, { scans: number; leads: number; pageViews: number }> = {};
   
+  // First, add analytics data
   analytics?.forEach((item) => {
     const date = item.date;
     if (!chartData[date]) {
@@ -91,12 +141,23 @@ export default async function AnalyticsPage() {
     chartData[date].leads += item.total_leads || 0;
     chartData[date].pageViews += item.page_views || 0;
   });
+  
+  // Then, add scan_sessions data (use max to ensure we don't double-count)
+  const scansByDateFromSessions = getScansByDateFromSessions(allScanSessions);
+  Object.entries(scansByDateFromSessions).forEach(([date, scanCount]) => {
+    if (!chartData[date]) {
+      chartData[date] = { scans: 0, leads: 0, pageViews: 0 };
+    }
+    // Use the maximum to ensure accuracy (scan_sessions is more real-time)
+    chartData[date].scans = Math.max(chartData[date].scans, scanCount);
+  });
 
-  // Fill in missing dates for the last 30 days to show complete timeline
+  // Fill in missing dates for the last 30 days to show complete timeline (using UTC)
   const last30Days: string[] = [];
+  const today = new Date();
   for (let i = 29; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
+    const date = new Date(today);
+    date.setUTCDate(date.getUTCDate() - i);
     last30Days.push(date.toISOString().split('T')[0]);
   }
 
@@ -122,8 +183,20 @@ export default async function AnalyticsPage() {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // Calculate overall totals (from ALL time, not just last 30 days)
-  // Analytics is the SINGLE source of truth - no fallback to qrcodes
-  const totalScans = analytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
+  // Use analytics as primary source, but fallback to scan_sessions for real-time accuracy
+  const totalScansFromAnalytics = analytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
+  const totalScansFromSessions = getQRScansFromSessions(allScanSessions);
+  const totalScans = Math.max(totalScansFromAnalytics, totalScansFromSessions);
+  
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Analytics Page] QR Scans Calculation:', {
+      totalScansFromAnalytics,
+      totalScansFromSessions,
+      totalScans,
+      scanSessionsCount: allScanSessions?.length || 0,
+    });
+  }
   const totalLeads = analytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
   const totalPageViews = analytics?.reduce((sum, a) => sum + (a.page_views || 0), 0) || 0;
   const totalUniqueVisitors = new Set(allScanSessions?.map((s) => s.session_id) || []).size;
@@ -185,10 +258,16 @@ export default async function AnalyticsPage() {
         .select('total_scans, total_leads, page_views, date')
         .eq('listing_id', listing.id);
 
-      // Debug logging removed - too verbose
-
-      const listingScans =
+      // Get scans from analytics
+      const listingScansFromAnalytics =
         listingAnalytics?.reduce((sum, a) => sum + (a.total_scans || 0), 0) || 0;
+      
+      // Get scans from scan_sessions (fallback)
+      const listingScansFromSessions = getQRScansFromSessions(allScanSessions, undefined, [listing.id]);
+      
+      // Use the maximum to ensure accuracy
+      const listingScans = Math.max(listingScansFromAnalytics, listingScansFromSessions);
+      
       const listingLeads =
         listingAnalytics?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
       const listingPageViews =
@@ -234,36 +313,57 @@ export default async function AnalyticsPage() {
 
   // Debug logging removed - too verbose
 
-  // Calculate comparison periods (this week vs last week)
+  // Calculate comparison periods (this week vs last week) using UTC dates
   const now = new Date();
-  const thisWeekStart = new Date(now);
-  thisWeekStart.setDate(now.getDate() - (now.getDay() || 7) + 1); // Monday
-  thisWeekStart.setHours(0, 0, 0, 0);
+  const todayUTC = now.toISOString().split('T')[0]; // Today in UTC (YYYY-MM-DD)
   
+  // Calculate this week start (Monday) in UTC
+  const thisWeekStart = new Date(now);
+  thisWeekStart.setUTCDate(now.getUTCDate() - (now.getUTCDay() || 7) + 1); // Monday
+  thisWeekStart.setUTCHours(0, 0, 0, 0);
+  const thisWeekStartUTC = thisWeekStart.toISOString().split('T')[0];
+  
+  // Calculate last week start and end in UTC
   const lastWeekStart = new Date(thisWeekStart);
-  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  lastWeekStart.setUTCDate(lastWeekStart.getUTCDate() - 7);
+  const lastWeekStartUTC = lastWeekStart.toISOString().split('T')[0];
+  
   const lastWeekEnd = new Date(thisWeekStart);
-  lastWeekEnd.setDate(lastWeekEnd.getDate() - 1);
-  lastWeekEnd.setHours(23, 59, 59, 999);
+  lastWeekEnd.setUTCDate(lastWeekEnd.getUTCDate() - 1);
+  lastWeekEnd.setUTCHours(23, 59, 59, 999);
+  const lastWeekEndUTC = lastWeekEnd.toISOString().split('T')[0];
 
+  // Filter analytics by UTC date strings
   const thisWeekAnalytics = analytics?.filter((a) => {
-    const date = new Date(a.date);
-    return date >= thisWeekStart;
+    return a.date >= thisWeekStartUTC && a.date <= todayUTC;
   }) || [];
 
   const lastWeekAnalytics = analytics?.filter((a) => {
-    const date = new Date(a.date);
-    return date >= lastWeekStart && date <= lastWeekEnd;
+    return a.date >= lastWeekStartUTC && a.date <= lastWeekEndUTC;
   }) || [];
 
+  // Calculate this week data with fallback to scan_sessions
+  const thisWeekScansFromAnalytics = thisWeekAnalytics.reduce((sum, a) => sum + (a.total_scans || 0), 0);
+  const thisWeekScansFromSessions = getQRScansFromSessions(allScanSessions, {
+    start: thisWeekStartUTC,
+    end: todayUTC,
+  });
+  
   const thisWeekData = {
-    scans: thisWeekAnalytics.reduce((sum, a) => sum + (a.total_scans || 0), 0),
+    scans: Math.max(thisWeekScansFromAnalytics, thisWeekScansFromSessions),
     leads: thisWeekAnalytics.reduce((sum, a) => sum + (a.total_leads || 0), 0),
     pageViews: thisWeekAnalytics.reduce((sum, a) => sum + (a.page_views || 0), 0),
   };
 
+  // Calculate last week data with fallback to scan_sessions
+  const lastWeekScansFromAnalytics = lastWeekAnalytics.reduce((sum, a) => sum + (a.total_scans || 0), 0);
+  const lastWeekScansFromSessions = getQRScansFromSessions(allScanSessions, {
+    start: lastWeekStartUTC,
+    end: lastWeekEndUTC,
+  });
+  
   const lastWeekData = {
-    scans: lastWeekAnalytics.reduce((sum, a) => sum + (a.total_scans || 0), 0),
+    scans: Math.max(lastWeekScansFromAnalytics, lastWeekScansFromSessions),
     leads: lastWeekAnalytics.reduce((sum, a) => sum + (a.total_leads || 0), 0),
     pageViews: lastWeekAnalytics.reduce((sum, a) => sum + (a.page_views || 0), 0),
   };
@@ -285,8 +385,15 @@ export default async function AnalyticsPage() {
     }
     geographicInsights[key].listings += 1;
     
+    // Get scans from analytics
     const listingAnalytics = analytics?.filter(a => a.listing_id === listing.id) || [];
-    geographicInsights[key].scans += listingAnalytics.reduce((sum, a) => sum + (a.total_scans || 0), 0);
+    const scansFromAnalytics = listingAnalytics.reduce((sum, a) => sum + (a.total_scans || 0), 0);
+    
+    // Get scans from scan_sessions (fallback)
+    const scansFromSessions = getQRScansFromSessions(allScanSessions, undefined, [listing.id]);
+    
+    // Use the maximum to ensure accuracy
+    geographicInsights[key].scans += Math.max(scansFromAnalytics, scansFromSessions);
     geographicInsights[key].leads += listingAnalytics.reduce((sum, a) => sum + (a.total_leads || 0), 0);
   });
 
@@ -408,7 +515,11 @@ export default async function AnalyticsPage() {
               Conversion Rate Over Time
             </h2>
             {chartDataArray.length > 0 ? (
-              <ConversionChart data={chartDataArray} />
+              <ConversionChart 
+                data={chartDataArray} 
+                totalScans={totalScans}
+                totalLeads={totalLeads}
+              />
             ) : (
               <div className="h-64 flex items-center justify-center text-gray-500">
                 No data available yet.
@@ -685,14 +796,40 @@ export default async function AnalyticsPage() {
                     const conversionRate = calculateConversionRate(data.scans, data.leads);
                     const isTopPerformer = index === 0 && (data.scans > 0 || data.leads > 0);
                     
+                    // Parse location string to extract city and state
+                    // Format: "City, State" or "Unknown"
+                    const parseLocation = (loc: string): { city: string | null; state: string | null } => {
+                      if (loc === 'Unknown' || !loc.includes(',')) {
+                        return { city: null, state: null };
+                      }
+                      const parts = loc.split(',').map(p => p.trim());
+                      return {
+                        city: parts[0] || null,
+                        state: parts[1] || null,
+                      };
+                    };
+                    
+                    const { city, state } = parseLocation(location);
+                    const hasValidLocation = city && state;
+                    
+                    // Build query string for listings page
+                    const queryParams = new URLSearchParams();
+                    if (city) queryParams.set('city', city);
+                    if (state) queryParams.set('state', state);
+                    const listingsUrl = hasValidLocation 
+                      ? `/dashboard/listings?${queryParams.toString()}`
+                      : '#';
+                    
                     return (
-                      <div
+                      <Link
                         key={location}
-                        className={`relative p-4 rounded-xl border-2 transition-all hover:shadow-md ${
+                        href={listingsUrl}
+                        className={`relative block p-4 rounded-xl border-2 transition-all cursor-pointer ${
                           isTopPerformer
-                            ? 'border-green-300 bg-linear-to-br from-green-50 to-green-100'
-                            : 'border-gray-200 bg-white hover:border-blue-200'
-                        }`}
+                            ? 'border-green-300 bg-linear-to-br from-green-50 to-green-100 hover:shadow-lg hover:border-green-400'
+                            : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg'
+                        } ${!hasValidLocation ? 'pointer-events-none opacity-75' : ''}`}
+                        aria-label={`View ${data.listings} ${data.listings === 1 ? 'property' : 'properties'} in ${location}`}
                       >
                         {isTopPerformer && (
                           <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md flex items-center gap-1">
@@ -732,7 +869,17 @@ export default async function AnalyticsPage() {
                             <span className="text-sm font-semibold text-green-900">{data.leads}</span>
                           </div>
                         </div>
-                      </div>
+                        
+                        {/* View Properties Indicator */}
+                        {hasValidLocation && (
+                          <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
+                            <span className="text-xs text-gray-500">View properties</span>
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </Link>
                     );
                   });
                 })()}

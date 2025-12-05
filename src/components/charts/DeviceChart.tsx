@@ -1,11 +1,129 @@
 'use client';
 
+import { useMemo } from 'react';
+
 interface DeviceChartProps {
   data: Record<string, number>; // { mobile: 10, desktop: 5, tablet: 2 }
 }
 
 export default function DeviceChart({ data }: DeviceChartProps) {
   const total = Object.values(data).reduce((sum, val) => sum + val, 0);
+
+  const colors: Record<string, string> = {
+    mobile: 'bg-blue-500',
+    desktop: 'bg-purple-500',
+    tablet: 'bg-pink-500',
+    unknown: 'bg-gray-400',
+  };
+
+  const colorHex: Record<string, string> = {
+    mobile: '#3b82f6',      // blue-500
+    desktop: '#a855f7',     // purple-500
+    tablet: '#ec4899',      // pink-500
+    unknown: '#9ca3af',     // gray-400
+  };
+
+  const labels: Record<string, string> = {
+    mobile: 'Mobile',
+    desktop: 'Desktop',
+    tablet: 'Tablet',
+    unknown: 'Unknown',
+  };
+
+  const entries = Object.entries(data)
+    .map(([device, count]) => ({
+      device,
+      count,
+      percentage: total > 0 ? (count / total) * 100 : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // Calculate performance insights
+  const insights = useMemo(() => {
+    const dominantDevice = entries[0];
+    const secondDevice = entries[1];
+    
+    // Calculate diversity score (0-100, where 100 is perfectly balanced)
+    const diversityScore = entries.length > 1
+      ? 100 - Math.abs(dominantDevice.percentage - (secondDevice?.percentage || 0))
+      : 0;
+    
+    // Determine distribution type
+    const isMobileFirst = dominantDevice.device === 'mobile' && dominantDevice.percentage > 60;
+    const isDesktopSignificant = entries.find(e => e.device === 'desktop')?.percentage || 0 > 40;
+    const isBalanced = diversityScore > 30 && entries.length >= 2;
+    const isVeryMobile = dominantDevice.device === 'mobile' && dominantDevice.percentage > 80;
+    const hasTablet = entries.some(e => e.device === 'tablet');
+    
+    return {
+      dominantDevice,
+      secondDevice,
+      diversityScore,
+      isMobileFirst,
+      isDesktopSignificant,
+      isBalanced,
+      isVeryMobile,
+      hasTablet,
+    };
+  }, [entries]);
+
+  // Generate actionable recommendation
+  const recommendation = useMemo(() => {
+    const { isMobileFirst, isDesktopSignificant, isBalanced, isVeryMobile, hasTablet, dominantDevice } = insights;
+
+    if (isVeryMobile) {
+      return {
+        type: 'mobile-first',
+        message: 'Mobile-first audience — prioritize mobile optimization for your listings',
+        icon: '📱',
+        color: 'blue',
+      };
+    }
+
+    if (isMobileFirst) {
+      return {
+        type: 'mobile-optimize',
+        message: 'Optimize for mobile — most visitors use mobile devices',
+        icon: '📱',
+        color: 'blue',
+      };
+    }
+
+    if (isDesktopSignificant && dominantDevice.device === 'desktop') {
+      return {
+        type: 'desktop-important',
+        message: 'Desktop users are important — ensure desktop experience is smooth',
+        icon: '💻',
+        color: 'purple',
+      };
+    }
+
+    if (isBalanced) {
+      return {
+        type: 'multi-device',
+        message: 'Great device diversity — ensure all devices work well',
+        icon: '✨',
+        color: 'green',
+      };
+    }
+
+    if (hasTablet) {
+      return {
+        type: 'responsive',
+        message: "Don't forget tablet users — ensure responsive design across all devices",
+        icon: '📱',
+        color: 'pink',
+      };
+    }
+
+    // Default
+    return {
+      type: 'default',
+      message: 'Monitor device usage to optimize your listings for your audience',
+      icon: '📊',
+      color: 'gray',
+    };
+  }, [insights]);
 
   if (total === 0) {
     return (
@@ -27,28 +145,6 @@ export default function DeviceChart({ data }: DeviceChartProps) {
       </div>
     );
   }
-
-  const colors: Record<string, string> = {
-    mobile: 'bg-blue-500',
-    desktop: 'bg-purple-500',
-    tablet: 'bg-pink-500',
-    unknown: 'bg-gray-400',
-  };
-
-  const labels: Record<string, string> = {
-    mobile: 'Mobile',
-    desktop: 'Desktop',
-    tablet: 'Tablet',
-    unknown: 'Unknown',
-  };
-
-  const entries = Object.entries(data)
-    .map(([device, count]) => ({
-      device,
-      count,
-      percentage: (count / total) * 100,
-    }))
-    .sort((a, b) => b.count - a.count);
 
   return (
     <div className="space-y-4">
@@ -74,10 +170,88 @@ export default function DeviceChart({ data }: DeviceChartProps) {
       </div>
       <div className="pt-4 border-t border-gray-200">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700">Total Scans</span>
+          <span className="text-sm font-medium text-gray-700">Total Sessions</span>
           <span className="text-lg font-bold text-gray-900">{total}</span>
         </div>
       </div>
+
+      {/* Performance Insights & Recommendations */}
+      {entries.length > 0 && (
+        <div className="pt-4 border-t border-gray-200 space-y-3">
+          {/* Performance Insights */}
+          <div 
+            className={`rounded-lg p-3 border ${
+              insights.dominantDevice.device === 'mobile'
+                ? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'
+                : insights.dominantDevice.device === 'desktop'
+                ? 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-100'
+                : 'bg-gradient-to-br from-pink-50 to-pink-100 border-pink-100'
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              <span className="text-lg">📊</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-700 mb-1.5">Device Insights</p>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600">Dominant Device:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-gray-900">
+                        {labels[insights.dominantDevice.device] || insights.dominantDevice.device}
+                      </span>
+                      <span 
+                        className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
+                        style={{ 
+                          backgroundColor: colorHex[insights.dominantDevice.device] || colorHex.unknown,
+                        }}
+                      >
+                        {insights.dominantDevice.percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                  {insights.isMobileFirst && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">Distribution:</span>
+                      <span className="text-xs font-semibold text-blue-700">Mobile-first</span>
+                    </div>
+                  )}
+                  {insights.isBalanced && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">Distribution:</span>
+                      <span className="text-xs font-semibold text-green-700">Well-balanced</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Actionable Recommendation */}
+          <div 
+            className={`rounded-lg p-3 border ${
+              recommendation.color === 'blue' 
+                ? 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
+                : recommendation.color === 'green'
+                ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-200'
+                : recommendation.color === 'purple'
+                ? 'bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200'
+                : recommendation.color === 'pink'
+                ? 'bg-gradient-to-br from-pink-50 to-pink-100 border-pink-200'
+                : 'bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200'
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              <span className="text-lg">{recommendation.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-700 mb-1">Recommendation</p>
+                <p className="text-xs text-gray-700 leading-relaxed">
+                  {recommendation.message}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

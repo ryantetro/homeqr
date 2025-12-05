@@ -64,8 +64,24 @@ export default async function ListingDetailPage({
   const totalLeadsFromAnalytics = analyticsData?.reduce((sum, a) => sum + (a.total_leads || 0), 0) || 0;
   const totalPageViews = analyticsData?.reduce((sum, a) => sum + (a.page_views || 0), 0) || 0;
 
-  // Analytics is the ONLY source of truth - no fallbacks
-  const displayScans = totalScans;
+  // Get scan_sessions for this listing as fallback (more real-time)
+  const { data: scanSessions } = await supabase
+    .from('scan_sessions')
+    .select('source, scan_count')
+    .eq('listing_id', id);
+
+  // Count QR scans from scan_sessions (source = 'qr' OR scan_count > 0)
+  const scanSessionsCount = scanSessions?.reduce((sum, session) => {
+    const isQRScan = session.source === 'qr' || (session.scan_count && session.scan_count > 0);
+    if (isQRScan) {
+      // Use scan_count if available, otherwise count as 1
+      return sum + (session.scan_count || 1);
+    }
+    return sum;
+  }, 0) || 0;
+
+  // Use the maximum of analytics and scan_sessions for real-time accuracy
+  const displayScans = Math.max(totalScans, scanSessionsCount);
   const displayLeads = Math.max(totalLeadsFromAnalytics, leads.length);
 
   // Parse images - handle multiple formats: JSON array string, array object, or single URL string

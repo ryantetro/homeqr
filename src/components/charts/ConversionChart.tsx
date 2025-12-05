@@ -9,6 +9,8 @@ interface ConversionChartProps {
     scans: number;
     leads: number;
   }>;
+  totalScans?: number; // Optional all-time total for consistent display
+  totalLeads?: number; // Optional all-time total for consistent display
 }
 
 const CustomTooltip = ({ 
@@ -45,7 +47,7 @@ const CustomTooltip = ({
   return null;
 };
 
-export default function ConversionChart({ data }: ConversionChartProps) {
+export default function ConversionChart({ data, totalScans, totalLeads }: ConversionChartProps) {
   const chartData = useMemo(() => {
     return data.map((item) => {
       const conversionRate = item.scans > 0 ? (item.leads / item.scans) * 100 : 0;
@@ -63,11 +65,11 @@ export default function ConversionChart({ data }: ConversionChartProps) {
   }, [data]);
 
   const avgRate = useMemo(() => {
-    if (chartData.length === 0) return 0;
-    const totalLeads = chartData.reduce((sum, d) => sum + d.leads, 0);
-    const totalScans = chartData.reduce((sum, d) => sum + d.scans, 0);
-    return totalScans > 0 ? (totalLeads / totalScans) * 100 : 0;
-  }, [chartData]);
+    // Use all-time totals if provided, otherwise calculate from chart data (last 30 days)
+    const scansTotal = totalScans !== undefined ? totalScans : chartData.reduce((sum, d) => sum + d.scans, 0);
+    const leadsTotal = totalLeads !== undefined ? totalLeads : chartData.reduce((sum, d) => sum + d.leads, 0);
+    return scansTotal > 0 ? (leadsTotal / scansTotal) * 100 : 0;
+  }, [chartData, totalScans, totalLeads]);
 
   const maxRate = Math.max(...chartData.map((d) => d.conversionRate), 0);
   const minRate = Math.min(...chartData.filter((d) => d.conversionRate > 0).map((d) => d.conversionRate), 0);
@@ -136,7 +138,7 @@ export default function ConversionChart({ data }: ConversionChartProps) {
             )}
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            {chartData.reduce((sum, d) => sum + d.leads, 0)} leads from {chartData.reduce((sum, d) => sum + d.scans, 0)} scans
+            {totalLeads !== undefined ? totalLeads : chartData.reduce((sum, d) => sum + d.leads, 0)} leads from {totalScans !== undefined ? totalScans : chartData.reduce((sum, d) => sum + d.scans, 0)} scans
           </p>
         </div>
       </div>

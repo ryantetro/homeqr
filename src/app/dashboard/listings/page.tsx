@@ -12,10 +12,12 @@ import { Suspense } from 'react';
 export default async function ListingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; city?: string; state?: string }>;
 }) {
   const params = await searchParams;
   const statusFilter = params.status || 'active';
+  const cityFilter = params.city;
+  const stateFilter = params.state;
   const supabase = await createClient();
   const {
     data: { user },
@@ -46,6 +48,14 @@ export default async function ListingsPage({
     query = query.eq('status', 'active');
   }
 
+  // Apply location filters
+  if (cityFilter) {
+    query = query.ilike('city', cityFilter);
+  }
+  if (stateFilter) {
+    query = query.eq('state', stateFilter);
+  }
+
   const { data: listings } = await query.order('created_at', { ascending: false });
 
   // Get analytics for conversion rates
@@ -54,6 +64,14 @@ export default async function ListingsPage({
     ? await supabase
         .from('analytics')
         .select('listing_id, total_scans, total_leads, page_views')
+        .in('listing_id', listingIds)
+    : { data: null };
+  
+  // Get scan_sessions for all listings as fallback (more real-time)
+  const { data: allScanSessions } = listingIds.length > 0
+    ? await supabase
+        .from('scan_sessions')
+        .select('listing_id, source, scan_count')
         .in('listing_id', listingIds)
     : { data: null };
   
@@ -66,6 +84,18 @@ export default async function ListingsPage({
       leads: existing.leads + (a.total_leads || 0),
       pageViews: existing.pageViews + (a.page_views || 0),
     });
+  });
+  
+  // Aggregate scan_sessions by listing (count QR scans)
+  const scanSessionsMap = new Map<string, number>();
+  allScanSessions?.forEach((session) => {
+    // Count as QR scan if source is 'qr' OR scan_count > 0
+    const isQRScan = session.source === 'qr' || (session.scan_count && session.scan_count > 0);
+    if (isQRScan) {
+      const existing = scanSessionsMap.get(session.listing_id) || 0;
+      // Use scan_count if available, otherwise count as 1
+      scanSessionsMap.set(session.listing_id, existing + (session.scan_count || 1));
+    }
   });
 
   // Create a map of listing_id to conversion rate (using already-aggregated analyticsMap)
@@ -85,6 +115,28 @@ export default async function ListingsPage({
           <p className="mt-2 text-gray-600">
             Manage QR codes and track performance
           </p>
+          {/* Location Filter Indicator */}
+          {(cityFilter || stateFilter) && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                {cityFilter && stateFilter ? `${cityFilter}, ${stateFilter}` : cityFilter || stateFilter}
+              </span>
+              <Link
+                href={`/dashboard/listings?status=${statusFilter}`}
+                className="inline-flex items-center gap-1 px-2 py-1 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                aria-label="Clear location filter"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear
+              </Link>
+            </div>
+          )}
         </div>
         {isExpired ? (
           <div className="text-right">
@@ -235,11 +287,13 @@ export default async function ListingsPage({
                     )}
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-3 flex-wrap">
-                        {/* Use analytics data as SINGLE source of truth */}
+                        {/* Use analytics data with scan_sessions fallback for real-time accuracy */}
                         {(() => {
                           const analytics = analyticsMap.get(listing.id);
-                          // Analytics is the ONLY source of truth - no fallback to qrcodes
-                          const displayScans = analytics?.scans || 0;
+                          const scansFromAnalytics = analytics?.scans || 0;
+                          const scansFromSessions = scanSessionsMap.get(listing.id) || 0;
+                          // Use the maximum to ensure accuracy (scan_sessions is more real-time)
+                          const displayScans = Math.max(scansFromAnalytics, scansFromSessions);
                           const displayPageViews = analytics?.pageViews || 0;
                           const displayLeads = analytics?.leads || 0;
                           const conversionRate = conversionMap.get(listing.id) || 0;
